@@ -61,17 +61,11 @@ int main(void)
 
 static void IO_Init(void)
 {
-  PORTC &= 0x9F; // pin C6, C5 is set low to start (PWM A,B of Timer/Counter 3)
- 
-  DDRC = 0x0;
-  DDRC |= (1<<PC5);
-  DDRC |= (1<<PC6);
+  // Set all PINS on clock and direction port low
+  CLK_DIR_PORT = 0x0; 
 
-/*   CLK_DIR_DDR = 0x0; */
-/*   CLK_DIR_DDR |= (1<<CLK0_DDR_PIN); */
-/*   CLK_DIR_DDR |= (1<<CLK1_DDR_PIN); */
-/*   CLK_DIR_DDR |= (1<<DIR0_DDR_PIN); */
-/*   CLK_DIR_DDR |= (1<<DIR1_DDR_PIN);   */
+  // Turn off Clock and Direction Pins
+  Clk_Dir_Off();
 
   // Set Clock high time 
   OCR3A = TIMER_CLOCK_HIGH; 
@@ -120,8 +114,7 @@ static void IO_Init(void)
     // to some values
     TCCR3B |= 0x2;
     break;
-  }
-  
+  }  
   return;
 }
 
@@ -334,6 +327,7 @@ static void Set_Vel(uint16_t Vel)
   }
   Sys_State.Vel = _Vel;
   SREG = sreg;
+
   return;
 }
 
@@ -411,6 +405,35 @@ static uint16_t Get_Min_Vel(void)
 static uint16_t Get_Top(uint16_t Vel)
 {
   return F_CPU/(TIMER_PRESCALER*Vel)-1;
+}
+
+
+// Enable clock and direction pins
+static void Clk_Dir_On(void)
+{
+  uint8_t sreg;
+  sreg = SREG;
+  cli();
+  CLK_DIR_DDR |= (1<<CLK0_DDR_PIN);
+  CLK_DIR_DDR |= (1<<CLK1_DDR_PIN);
+  CLK_DIR_DDR |= (1<<DIR0_DDR_PIN);
+  CLK_DIR_DDR |= (1<<DIR1_DDR_PIN);
+  SREG = sreg;
+  return;
+}
+
+// Disable clock and direction pins
+static void Clk_Dir_Off(void)
+{
+  uint8_t sreg;
+  sreg = SREG;
+  cli();
+  CLK_DIR_DDR &= ~(1<<CLK0_DDR_PIN);
+  CLK_DIR_DDR &= ~(1<<CLK1_DDR_PIN);
+  CLK_DIR_DDR &= ~(1<<DIR0_DDR_PIN);
+  CLK_DIR_DDR &= ~(1<<DIR1_DDR_PIN);
+  SREG = sreg;
+  return;
 }
 
 static void USB_Packet_Read(void)
