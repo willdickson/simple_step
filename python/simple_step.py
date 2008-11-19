@@ -81,6 +81,7 @@ SET_TYPE_DICT = {
     USB_CMD_SET_MODE : 'uint8',
     USB_CMD_SET_VEL_LIM : 'uint16',
     USB_CMD_SET_ZERO_POS : 'int32',
+    USB_CMD_TEST: 'uint8',
     }
 
 # Dictionary from type to USB_CTL values
@@ -291,6 +292,7 @@ class Simple_Step:
         else:
             dir_val = dir
         dir_val = self.usb_set_cmd(USB_CMD_SET_DIR,dir_val)
+
         # If input direction is a string we return a string 
         if type(dir) == str:
             return VAL2DIR_DICT[dir_val]
@@ -301,7 +303,8 @@ class Simple_Step:
         """
         Returns the motor rotation direction. The return values can be
         strings ('positive', 'negative') or integer values (POSITIVE,
-        NEGATIVE) depending on the keyword  argument ret_type.
+        NEGATIVE) depending on the keyword  argument ret_type. Note, the
+        direction can only be set when the device is in velocity mode.
         
         Keywords:
           ret_type = 'str' or 'int'
@@ -442,7 +445,7 @@ class Simple_Step:
         """
         # Get value type from CMD_ID and convert to CTL_VAL
         val_type = SET_TYPE_DICT[cmd_id]
-
+    
         # Send command + value and receive data
         self.output_buffer[0] = chr(cmd_id%0x100)
         ctl_val = TYPE2USB_CTL_DICT[val_type]
@@ -481,7 +484,7 @@ class Simple_Step:
         """
         Dummy usb command for debugging.
         """
-        val = self.usb_get_cmd(USB_CMD_TEST)
+        val = self.usb_set_cmd(USB_CMD_TEST,1)
         return val
 
     def __get_usb_header(self,data):
@@ -603,6 +606,13 @@ if __name__=='__main__':
     if 1:
         
         dev = Simple_Step()
-        dev.print_values()
+        dev.set_vel(10000)
+        dir = dev.get_dir()
+        #print dir
+        if dir == 'positive':
+            dev.set_dir('negative')
+        else:
+            dev.set_dir('positive')
+        dev.print_values()    
         dev.close()
     

@@ -115,6 +115,10 @@ static void IO_Init(void)
     TCCR3B |= 0x2;
     break;
   }  
+
+  // Enable Timer3 overflow interrupts
+  TIMSK3 = 0x00; 
+  TIMSK3 |= (1<<TOIE3); 
   return;
 }
 
@@ -279,8 +283,8 @@ TASK(USB_Process_Packet)
 
       case USB_CMD_TEST:
 	// Test command for debugging
-	USB_In.Header.Control_Byte = USB_CTL_INT32;
-	USB_In.Data.int32_t = -503210;
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	USB_In.Data.uint8_t = 1;
 	break;
 
       default:
@@ -311,36 +315,37 @@ static void Set_Pos_SetPt(int32_t Pos)
 static void Set_Vel(uint16_t Vel)
 {
   uint8_t sreg;
-  uint16_t _Vel;
-  
+  // If device is in position mode do nothing
   if (Sys_State.Mode == POS_MODE) {
     return;
   }
-
+  // We are in velocity mode - change Sys_State velocity
   sreg = SREG;
   cli();
-  if (Vel > Sys_State.Vel_Lim) {
-    _Vel = Sys_State.Vel_Lim;
-  }
-  else {
-    _Vel = Vel;
-  }
-  Sys_State.Vel = _Vel;
+  Sys_State.Vel = Vel < Sys_State.Vel_Lim ? Vel : Sys_State.Vel_Lim;
   SREG = sreg;
-
+ 
+  Vel_Mode_IO_Update();
   return;
 }
 
 static void Set_Dir(uint8_t Dir)
 {
-  uint8_t sreg;
+  uint8_t sreg;  
   
+  // If device in is position mode do nothing
+  if (Sys_State.Mode == POS_MODE) {
+    return;
+  }
+
+  // We are in velocity mode change the direction
   sreg = SREG;
   cli();
   if ((Dir == DIR_POS) || (Dir == DIR_NEG)) {
     Sys_State.Dir = Dir;
   }
   SREG = sreg;
+  Vel_Mode_IO_Update();
   return;
 }
 
@@ -349,10 +354,17 @@ static void Set_Vel_Lim(uint16_t Vel_Lim)
   uint8_t sreg;
   sreg = SREG;
   cli();
-  if (Vel_Lim <= VEL_LIM_MAX) {
+  if (Vel_Lim <= Get_Max_Vel()) {
     Sys_State.Vel_Lim = Vel_Lim;
   }
+  if (Sys_State.Vel > Vel_Lim) {
+    Sys_State.Vel = Vel_Lim;
+  }
   SREG = sreg;
+
+  // If in velocity mode update output settings
+  Vel_Mode_IO_Update();
+
   return;
 }
 
@@ -366,14 +378,21 @@ static void Set_Mode(uint8_t Mode)
     Sys_State.Mode = Mode;
   }
   SREG = sreg;
+
+  // If in velocity mode update output settings
+  if (Sys_State.Mode == VEL_MODE) {
+    Vel_Mode_IO_Update();
+  }
+  else {
+    // 
+    //
+  }
+
   return;
 }
 
 static int32_t Get_Pos_Err(void)
 {
-  if (Sys_State.Mode == VEL_MODE) {
-    return 0;
-  }
   return Sys_State.Pos_SetPt - Sys_State.Pos;
 }
 
@@ -414,10 +433,8 @@ static void Clk_Dir_On(void)
   uint8_t sreg;
   sreg = SREG;
   cli();
-  CLK_DIR_DDR |= (1<<CLK0_DDR_PIN);
-  CLK_DIR_DDR |= (1<<CLK1_DDR_PIN);
-  CLK_DIR_DDR |= (1<<DIR0_DDR_PIN);
-  CLK_DIR_DDR |= (1<<DIR1_DDR_PIN);
+  CLK_DIR_DDR |= (1<<CLK_DDR_PIN);
+  CLK_DIR_DDR |= (1<<DIR_DDR_PIN);
   SREG = sreg;
   return;
 }
@@ -428,11 +445,44 @@ static void Clk_Dir_Off(void)
   uint8_t sreg;
   sreg = SREG;
   cli();
-  CLK_DIR_DDR &= ~(1<<CLK0_DDR_PIN);
-  CLK_DIR_DDR &= ~(1<<CLK1_DDR_PIN);
-  CLK_DIR_DDR &= ~(1<<DIR0_DDR_PIN);
-  CLK_DIR_DDR &= ~(1<<DIR1_DDR_PIN);
+  CLK_DIR_DDR &= ~(1<<CLK_DDR_PIN);
+  CLK_DIR_DDR &= ~(1<<DIR_DDR_PIN);
   SREG = sreg;
+  return;
+}
+
+// Upate IO for velocity mode 
+static void Vel_Mode_IO_Update(void)
+{
+  uint8_t sreg;
+  
+  uint16_t timer_top;
+  
+  if (Sys_State.Vel > Get_Min_Vel()) {
+
+    // Velocity 
+    Clk_Dir_On();
+
+    sreg = SREG;
+    cli();
+    // Set direction line
+    if (Sys_State.Dir == DIR_POS) {
+      CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
+    }
+    else {
+      CLK_DIR_PORT &= ~(1 << DIR_PORT_PIN);
+    }
+
+    // Update clock frequency
+    timer_top = Get_Top(Sys_State.Vel);
+    timer_top = timer_top > TIMER_TOP_MIN ? timer_top : TIMER_TOP_MIN;
+    timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
+    ICR3 = timer_top;
+    SREG = sreg;
+  }
+  else {
+    Clk_Dir_Off();
+  }
   return;
 }
 
@@ -498,3 +548,21 @@ static void REG_16bit_Write (volatile uint16_t * reg, volatile uint16_t val)
   return;
 }
 
+
+ISR(TIMER3_OVF_vect) {
+
+  switch (Sys_State.Mode) {
+
+  case POS_MODE:
+    break;
+
+  case VEL_MODE:
+    // Nothing to do here
+    break;
+
+  default:
+    break;
+
+  }
+  return;
+}

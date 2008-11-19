@@ -65,17 +65,13 @@
 
 // Clock and direction directions reg and pins
 #define CLK_DIR_DDR DDRC
-#define CLK0_DDR_PIN DDC5
-#define CLK1_DDR_PIN DDC6
-#define DIR0_DDR_PIN DDC3
-#define DIR1_DDR_PIN DDC4
+#define CLK_DDR_PIN DDC5
+#define DIR_DDR_PIN DDC4
 
 // Clock and Direction port and pins
 #define CLK_DIR_PORT PORTC
-#define CLK0_PORT_PIN PC5
-#define CLK1_PORT_PIN PC6
-#define DIR0_PORT_PIN PC3
-#define DIR1_PORT_PIN PC4 
+#define CLK_PORT_PIN PC5
+#define DIR_PORT_PIN PC4 
 
 // Software reset 
 #define AVR_RESET() wdt_enable(WDTO_30MS); while(1) {}
@@ -149,6 +145,7 @@ static uint16_t Get_Min_Vel(void);
 static uint16_t Get_Top(uint16_t Vel);
 static void Clk_Dir_On(void);
 static void Clk_Dir_Off(void);
+static void Vel_Mode_IO_Update(void);
 
 //static void IO_Disconnect (void);
 #endif
