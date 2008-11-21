@@ -644,7 +644,7 @@ if __name__=='__main__':
             dev.set_mode('velocity')
             dev.set_dir('positive')
             #dev.set_dir('negative')
-            dev.set_vel_setpt(20000)
+            dev.set_vel_setpt(2000)
         if 0:
             dev.set_pos_vel(10000)
             dev.set_mode('position')

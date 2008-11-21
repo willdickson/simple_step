@@ -69,58 +69,48 @@ static void IO_Init(void)
   Clk_Dir_Off();
 
   // Set Clock high time 
-  OCR3B = TIMER_TOP_MAX/2; 
+  TIMER_OCR = TIMER_TOP_MAX/2; 
   
   // Set TOP high
-  ICR3 = TIMER_TOP_MAX;  // 10 msec (100 Hz)
+  TIMER_ICR = TIMER_TOP_MAX;  // 10 msec (100 Hz)
 
-  // ---- set TCCRA_motor ----------
-  // set Compare Output Mode for Fast PWM
-  // COM1A1:0 = 1,0 clear OC1A on compare match
-  // COM1B1:0 = 1,0 clear OC1B on compare match
-  // COM1C1:0 = 0,0 OCR1C disconnected
-  // WGM11, WGM10 = 1,0
-  TCCR3A= 0xA2;
-
-  // ---- set TCCRB_motor ----------
-  // high bits = 0,0,0
-  //WGM33, WGM32 = 1,1
-  
-  //TCCR3B = 0x1A;
-
-  TCCR3B = 0x18;
+  // Set timer control registers, connect OCnB to pin and set 
+  // to fast PWM mode.
+  TIMER_TCCRA = 0x22; 
+  TIMER_TCCRB = 0x18; 
+ 
   // Set Timer prescaler
   switch (TIMER_PRESCALER) {
   case 0:
-    TCCR3B |= 0x1;
+    TIMER_TCCRB |= 0x1;
     break;
  
   case 8:
-    TCCR3B |= 0x2;
+    TIMER_TCCRB |= 0x2;
     break;
 
   case 64:
-    TCCR3B |= 0x3;
+    TIMER_TCCRB |= 0x3;
     break;
 
   case 256:
-    TCCR3B |= 0x4;
+    TIMER_TCCRB |= 0x4;
     break;
     
   case 1024:
-    TCCR3B |= 0x5;
+    TIMER_TCCRB |= 0x5;
     break;
 
   default:
     // We shouldn't be here - but just in case set it
     // to some values - same a TIMER_PRESCALER 8
-    TCCR3B |= 0x2;
+    TIMER_TCCRB |= 0x2;
     break;
   }
 
   // Enable Timer3 overflow interrupts
-  TIMSK3 = 0x00; 
-  TIMSK3 |= (1<<TOIE3); 
+  TIMER_TIMSK = 0x00; 
+  TIMER_TIMSK |= (1<<TIMER_TOIE); 
   return;
 }
 
@@ -571,8 +561,8 @@ static void IO_Update(void)
 
   // Update clock frequency and pulse width 
 
-  OCR3B = timer_top/2;
-  ICR3 = timer_top;
+  TIMER_OCR = timer_top/2;
+  TIMER_ICR = timer_top;
   SREG = sreg;
 
   return;

@@ -64,11 +64,16 @@
 #define TIMER_TOP_MAX 65535   // 65535 => 15.52Hz
 
 // Timer top and output compare registers
-#define TIMER_TOP ICR3  
+#define TIMER_ICR ICR3  
 #define TIMER_OCR OCR3B 
+
+// Timer control registers
 #define TIMER_TCCRA TCCR3A
 #define TIMER_TCCRB TCCR3B
-#define TIMER_TIMSK TIMSK3
+
+// Timer interrupt mask register and enable
+#define TIMER_TIMSK TIMSK3 // Mask register
+#define TIMER_TOIE  TOIE3  // Enable
 
 // Clock and direction directions reg and pins
 #define CLK_DIR_DDR DDRC
