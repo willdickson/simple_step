@@ -30,18 +30,20 @@ USB_BUFFER_SIZE = 8
 USB_CMD_GET_POS = 0
 USB_CMD_SET_POS_SETPT = 1
 USB_CMD_GET_POS_SETPT = 2
-USB_CMD_SET_VEL = 3
-USB_CMD_GET_VEL = 4
-USB_CMD_SET_DIR = 5
-USB_CMD_GET_DIR = 6
-USB_CMD_SET_MODE = 7
-USB_CMD_GET_MODE = 8
-USB_CMD_SET_VEL_LIM = 9
-USB_CMD_GET_VEL_LIM = 10
-USB_CMD_GET_POS_ERR = 11
-USB_CMD_SET_ZERO_POS = 12
-USB_CMD_GET_MAX_VEL = 13
-USB_CMD_GET_MIN_VEL = 14
+USB_CMD_SET_VEL_SETPT = 3
+USB_CMD_GET_VEL_SETPT = 4
+USB_CMD_GET_VEL = 5
+USB_CMD_SET_DIR = 6
+USB_CMD_GET_DIR = 7
+USB_CMD_SET_MODE = 8
+USB_CMD_GET_MODE = 9
+USB_CMD_SET_POS_VEL = 10
+USB_CMD_GET_POS_VEL = 11
+USB_CMD_GET_POS_ERR = 12
+USB_CMD_SET_ZERO_POS = 13
+USB_CMD_GET_MAX_VEL = 14
+USB_CMD_GET_MIN_VEL = 15
+USB_CMD_GET_STATUS = 16
 USB_CMD_AVR_RESET = 200
 USB_CMD_AVR_DFU_MODE = 201
 USB_CMD_TEST = 251
@@ -58,6 +60,10 @@ POSITION_MODE = 1
 # Integer values for dircetions - used in usb set/get
 POSITIVE = 0
 NEGATIVE = 1
+
+# Status C0nstants
+RUNNING = 1
+STOPPED = 0
 
 # Mapping from mode strings to integer values
 MODE2VAL_DICT = {
@@ -76,10 +82,10 @@ VAL2DIR_DICT = swap_dict(DIR2VAL_DICT)
 # Dictionary of value types for set commands
 SET_TYPE_DICT = {
     USB_CMD_SET_POS_SETPT : 'int32',
-    USB_CMD_SET_VEL : 'uint16',
+    USB_CMD_SET_VEL_SETPT : 'uint16',
     USB_CMD_SET_DIR : 'uint8',
     USB_CMD_SET_MODE : 'uint8',
-    USB_CMD_SET_VEL_LIM : 'uint16',
+    USB_CMD_SET_POS_VEL : 'uint16',
     USB_CMD_SET_ZERO_POS : 'int32',
     USB_CMD_TEST: 'uint8',
     }
@@ -91,6 +97,12 @@ TYPE2USB_CTL_DICT = {
     'int32' : USB_CTL_INT32,
     }
 USB_CTL2TYPE_DICT = swap_dict(TYPE2USB_CTL_DICT)
+
+# Dictionary of status integets to strings 
+STATUS_DICT = {
+    RUNNING : 'running',
+    STOPPED : 'stopped',
+}
 
 def debug(val):
     if DEBUG==True:
@@ -107,8 +119,7 @@ def debug_print(msg, comma=False):
 class Simple_Step:
 
     """
-    USB communications interface to the at90usb based stepper motor
-    controller.
+    USB communications interface to the at90usb based stepper motor.
     """
 
     def __init__(self):
@@ -241,43 +252,49 @@ class Simple_Step:
         set_pt = self.usb_get_cmd(USB_CMD_GET_POS_SETPT)
         return set_pt
 
-    def set_vel(self,vel):
+    def set_vel_setpt(self,vel_setpt):
         """
-        Sets the motor velocity in indices/sec.  The velocity is
-        always nonnegative - the direction of rotation is determined
+        Sets the motor velocity set-point in indices/sec.  The velocity 
+        is always nonnegative - the direction of rotation is determined
         by setting the direction value. The motor will spin at this
         velocity in the set direction (see the get_dir and set_dir
-        commands) when the device is in velocity mode. Note, The motor
-        velocity can only be set when the device is in velocity mode.
-        Also, the velocity is limited by the velocity limit setting.
-        Trying to set the motor velocity to a value greater then
-        velocity limit will result in the velocity being set to the
-        velocity limit.
+        commands) when the device is in velocity mode.  Trying to set
+        the motor velocity to a value greater then maximum velocity 
+        result in the velocity being set to the maximum velocity.
         
         Argument: 
-          vel = the motor velocity (indices/sec),  always >= 0
+          vel_setpt = the motor velocity (indices/sec),  always >= 0
         
         Return: the actual motor velocity obtained indice/sec. 
         """
-        if vel < 0:
-            raise ValueError, "vel must be >= 0"
-        vel = self.usb_set_cmd(USB_CMD_SET_VEL,vel)
-        return vel
+        if vel_setpt < 0:
+            raise ValueError, "vel_sept must be >= 0"
+        vel_setpt = self.usb_set_cmd(USB_CMD_SET_VEL_SETPT,vel_setpt)
+        return vel_setpt
+
+    def get_vel_setpt(self):
+        """
+        Returns the motors current velocity set-point in indices/sec. 
+        Note, this is  always a positive number. The direction of rotation 
+        is determined by the direction value.
+        """
+        vel_setpt = self.usb_get_cmd(USB_CMD_GET_VEL_SETPT)
+        return vel_setpt
 
     def get_vel(self):
         """
-        Returns the motors current velocity in indices/sec. Note, this is 
-        always a positive number. The direction of rotation is determined 
-        by the direction value.
+        Returns the motors current velocity in indices/second. 
         """
         vel = self.usb_get_cmd(USB_CMD_GET_VEL)
         return vel
-
+        
     def set_dir(self,dir):
         """
         Sets the motor rotation direction. The value can be set using
         the strings 'positive'/'negative' or by using the the integer 
-        values POSITIVE/NEGATIVE.
+        values POSITIVE/NEGATIVE. Note, the direction can only be set
+        when the device is in velocity mode. In position mode the 
+        direction is determined by the position error.
 
         Argument: 
 
@@ -362,30 +379,28 @@ class Simple_Step:
         else:
             return VAL2MODE_DICT[mode_val]
             
-    def set_vel_lim(self,vel_lim):
+    def set_pos_vel(self,pos_vel):
         """
-        Sets the velocity limit for the device in indices/sec. This
+        Sets the positioning velocity for the device in indices/sec. This
         will be the velocity used for moving the motor when the device
-        is in position mode. It is the maximum allowed velocity when
-        the device is in velocity mode. The velocity limit is always
-        >= 0.
+        is in position mode. 
 
         Arguments:
-          vel_lim = the velocity limit (indices/sec), always >= 0
+          pos_vel = positioning velocity l(indices/sec), always >= 0
 
-        Return:  the current velocity limit setting. 
+        Return:  the current positioning velocity. 
         """
-        if vel_lim < 0:
-            raise ValueError, "vel_lim must be >= 0"
-        vel_lim = self.usb_set_cmd(USB_CMD_SET_VEL_LIM,vel_lim)
-        return vel_lim
+        if pos_vel < 0:
+            raise ValueError, "pos_vel must be >= 0"
+        pos_vel = self.usb_set_cmd(USB_CMD_SET_POS_VEL,pos_vel)
+        return pos_vel
 
-    def get_vel_lim(self):
+    def get_pos_vel(self):
         """
-        Returns the current velocity limit setting in indices/sec.
+        Returns the positioning velocity in indices/sec.
         """
-        vel_lim = self.usb_get_cmd(USB_CMD_GET_VEL_LIM)
-        return vel_lim
+        pos_vel = self.usb_get_cmd(USB_CMD_GET_POS_VEL)
+        return pos_vel
 
     def get_pos_err(self):
         """
@@ -433,6 +448,22 @@ class Simple_Step:
         min_vel = self.usb_get_cmd(USB_CMD_GET_MIN_VEL)
         return min_vel
 
+    def get_status(self,ret_type='str'):
+        """
+        Returns the device status. 
+        
+        keywords:
+          ret_type = sets the return type 'str' or 'int' 
+
+        Return: 'running' or 'stopped' if ret_type = 'str'
+                 RUNNING  or  STOPPED  if ret_type = 'int' 
+        """
+        status_val = self.usb_get_cmd(USB_CMD_GET_STATUS)
+        if ret_type == 'str':
+            return STATUS_DICT[status_val]
+        else:
+            return status_val
+
     def usb_set_cmd(self,cmd_id,val):
         """
         Generic usb set command. Sends set command w/ value to device
@@ -440,7 +471,7 @@ class Simple_Step:
 
         Example:
         
-        vel_lim = dev.usb_set_cmd(USB_SET_VEL_LIM, vel_lim)
+        pos_vel= dev.usb_set_cmd(USB_SET_POS_VEL, pos_vel)
 
         """
         # Get value type from CMD_ID and convert to CTL_VAL
@@ -550,15 +581,17 @@ class Simple_Step:
         """
         Prints the current device values 
         """
+        print 'operating mode:', self.get_mode()
         print 'position:', self.get_pos()
         print 'velocity:', self.get_vel()
         print 'direction:', self.get_dir()
-        print 'velocity limit:', self.get_vel_lim()
         print 'position error:', self.get_pos_err()
         print 'position set-point:', self.get_pos_setpt()
-        print 'operating mode:', self.get_mode()
+        print 'velocity set-point:', self.get_vel_setpt()
+        print 'positioning velocity:', self.get_pos_vel()
         print 'maximum velocity:', self.get_max_vel()
         print 'minimum velocity:', self.get_min_vel()
+        print 'status:', self.get_status()
 
 
 def check_cmd_id(expected_id,received_id):
@@ -578,10 +611,10 @@ if __name__=='__main__':
         
         dev = Simple_Step()
         
-        print 'set_vel_lim: ', dev.set_vel_lim(40000)
+        print 'set_pos_vel: ', dev.set_pos_vel(40000)
         print 'set_zero_pos:', dev.set_zero_pos(0)
         print 'set_pos_setpt:', dev.set_pos_setpt(1000)
-        print 'set_vel:', dev.set_vel(40002)
+        print 'set_vel:', dev.set_vel_setpt(4000)
         print 'set_dir:', dev.set_dir('negative')
         print 'set_dir:', dev.set_dir(POSITIVE)
         print 'set_mode:', dev.set_mode('position')
@@ -606,13 +639,17 @@ if __name__=='__main__':
     if 1:
         
         dev = Simple_Step()
-        dev.set_vel(10000)
-        dir = dev.get_dir()
-        #print dir
-        if dir == 'positive':
-            dev.set_dir('negative')
-        else:
+        
+        if 1:
+            dev.set_mode('velocity')
             dev.set_dir('positive')
+            #dev.set_dir('negative')
+            dev.set_vel_setpt(20000)
+        if 0:
+            dev.set_pos_vel(10000)
+            dev.set_mode('position')
+            dev.set_pos_setpt(0)
+
         dev.print_values()    
         dev.close()
     

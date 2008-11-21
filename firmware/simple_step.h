@@ -6,6 +6,7 @@
 #ifndef _SIMPLE_STEP_H_
 #define _SIMPLE_STEP_H_
 
+#include <math.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
@@ -20,18 +21,20 @@
 #define USB_CMD_GET_POS          0
 #define USB_CMD_SET_POS_SETPT    1
 #define USB_CMD_GET_POS_SETPT    2
-#define USB_CMD_SET_VEL          3
-#define USB_CMD_GET_VEL          4
-#define USB_CMD_SET_DIR          5
-#define USB_CMD_GET_DIR          6
-#define USB_CMD_SET_MODE         7
-#define USB_CMD_GET_MODE         8
-#define USB_CMD_SET_VEL_LIM      9
-#define USB_CMD_GET_VEL_LIM     10
-#define USB_CMD_GET_POS_ERR     11
-#define USB_CMD_SET_ZERO_POS    12
-#define USB_CMD_GET_MAX_VEL     13
-#define USB_CMD_GET_MIN_VEL     14
+#define USB_CMD_SET_VEL_SETPT    3
+#define USB_CMD_GET_VEL_SETPT    4
+#define USB_CMD_GET_VEL          5
+#define USB_CMD_SET_DIR          6
+#define USB_CMD_GET_DIR          7
+#define USB_CMD_SET_MODE         8
+#define USB_CMD_GET_MODE         9
+#define USB_CMD_SET_POS_VEL     10
+#define USB_CMD_GET_POS_VEL     11
+#define USB_CMD_GET_POS_ERR     12
+#define USB_CMD_SET_ZERO_POS    13
+#define USB_CMD_GET_MAX_VEL     14
+#define USB_CMD_GET_MIN_VEL     15
+#define USB_CMD_GET_STATUS      16
 #define USB_CMD_AVR_RESET      200
 #define USB_CMD_AVR_DFU_MODE   201
 #define USB_CMD_TEST           251
@@ -39,7 +42,7 @@
 // Usb ctl values - determine data type
 #define USB_CTL_UINT8  0
 #define USB_CTL_UINT16 1
-#define USB_CTL_INT32 2
+#define USB_CTL_INT32  2
 
 // Opertaing modes
 #define VEL_MODE 0
@@ -50,18 +53,22 @@
 #define DIR_NEG 1
 
 // Maximum velocity Limit
-#define VEL_LIM_MAX 50000
+#define DEFAULT_POS_VEL 5000
 
 // Prescaler for pwm timer
 #define TIMER_PRESCALER 8
-
-// Timer counts for which clock is high
-#define TIMER_CLOCK_HIGH 10
 
 // Max and min values allowed for the timer.
 // Sets the min and max frequencies.
 #define TIMER_TOP_MIN 19      // 19 => 50kHz
 #define TIMER_TOP_MAX 65535   // 65535 => 15.52Hz
+
+// Timer top and output compare registers
+#define TIMER_TOP ICR3  
+#define TIMER_OCR OCR3B 
+#define TIMER_TCCRA TCCR3A
+#define TIMER_TCCRB TCCR3B
+#define TIMER_TIMSK TIMSK3
 
 // Clock and direction directions reg and pins
 #define CLK_DIR_DDR DDRC
@@ -72,6 +79,10 @@
 #define CLK_DIR_PORT PORTC
 #define CLK_PORT_PIN PC5
 #define DIR_PORT_PIN PC4 
+
+// States for run status flag
+#define RUNNING 1
+#define STOPPED 0
 
 // Software reset 
 #define AVR_RESET() wdt_enable(WDTO_30MS); while(1) {}
@@ -99,12 +110,14 @@ typedef struct {
 
 // Sytem state structure
 typedef struct {
-  uint8_t  Mode;
-  uint8_t  Dir;
-  uint16_t Vel;
-  uint16_t Vel_Lim;
-  int32_t Pos;         // Actual motor position
-  int32_t Pos_SetPt;  // Set point motor position
+  uint8_t   Mode;        // Operating mode
+  uint8_t   Dir;         // Motor Direction
+  uint16_t  Vel;         // Actual motor velocity
+  int32_t   Pos;         // Actual motor position
+  int32_t   Pos_SetPt;   // Set-point motor position
+  uint16_t  Pos_Vel;     // Positioning velocity
+  uint16_t  Vel_SetPt;   // Set-point velocity
+  uint8_t   Status;      // Motor status (RUNNING or STOPPED)
 } Sys_State_t;
 
 /// Global variables
@@ -115,9 +128,11 @@ volatile Sys_State_t Sys_State = {
  Mode:      VEL_MODE, 
  Dir:       DIR_POS,
  Vel:       0,
- Vel_Lim:   VEL_LIM_MAX,
  Pos:       0,
  Pos_SetPt: 0,
+ Pos_Vel:   DEFAULT_POS_VEL,
+ Vel_SetPt: 0,
+ Status:    STOPPED,
 };
 
 // Task Definitions: 
@@ -134,9 +149,9 @@ static void USB_Packet_Write(void);
 static void REG_16bit_Write(volatile uint16_t * reg, volatile uint16_t val);
 static void IO_Init(void);
 static void Set_Pos_SetPt(int32_t Pos);
-static void Set_Vel(uint16_t Vel);
+static void Set_Vel_SetPt(uint16_t Vel);
 static void Set_Dir(uint8_t Dir);
-static void Set_Vel_Lim(uint16_t Vel_Lim);
+static void Set_Pos_Vel(uint16_t Pos_Vel);
 static void Set_Mode(uint8_t Mode);
 static void Set_Zero_Pos(int32_t Pos);
 static int32_t Get_Pos_Err(void);
@@ -145,7 +160,8 @@ static uint16_t Get_Min_Vel(void);
 static uint16_t Get_Top(uint16_t Vel);
 static void Clk_Dir_On(void);
 static void Clk_Dir_Off(void);
+static void IO_Update(void);
 static void Vel_Mode_IO_Update(void);
+static void Pos_Mode_IO_Update(void);
 
-//static void IO_Disconnect (void);
-#endif
+#endif // _SIMPLE_STEP_H_

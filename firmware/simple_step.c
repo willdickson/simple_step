@@ -54,6 +54,7 @@ int main(void)
 
   IO_Init();
 
+
   // Scheduling - routine never returns, so put this last in the main function 
   Scheduler_Start();
   return 0;
@@ -68,11 +69,10 @@ static void IO_Init(void)
   Clk_Dir_Off();
 
   // Set Clock high time 
-  OCR3A = TIMER_CLOCK_HIGH; 
-  OCR3B = TIMER_CLOCK_HIGH; 
-
+  OCR3B = TIMER_TOP_MAX/2; 
+  
   // Set TOP high
-  ICR3 = TIMER_TOP_MIN;  // 10 msec (100 Hz)
+  ICR3 = TIMER_TOP_MAX;  // 10 msec (100 Hz)
 
   // ---- set TCCRA_motor ----------
   // set Compare Output Mode for Fast PWM
@@ -85,8 +85,10 @@ static void IO_Init(void)
   // ---- set TCCRB_motor ----------
   // high bits = 0,0,0
   //WGM33, WGM32 = 1,1
-  TCCR3B = 0x18;
+  
+  //TCCR3B = 0x1A;
 
+  TCCR3B = 0x18;
   // Set Timer prescaler
   switch (TIMER_PRESCALER) {
   case 0:
@@ -111,10 +113,10 @@ static void IO_Init(void)
 
   default:
     // We shouldn't be here - but just in case set it
-    // to some values
+    // to some values - same a TIMER_PRESCALER 8
     TCCR3B |= 0x2;
     break;
-  }  
+  }
 
   // Enable Timer3 overflow interrupts
   TIMSK3 = 0x00; 
@@ -205,12 +207,17 @@ TASK(USB_Process_Packet)
 	USB_In.Data.int32_t = Sys_State.Pos_SetPt;
 	break;
 
-      case USB_CMD_SET_VEL:
-	Set_Vel(USB_Out.Data.uint16_t);
+      case USB_CMD_SET_VEL_SETPT:
+	Set_Vel_SetPt(USB_Out.Data.uint16_t);
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
-	USB_In.Data.uint16_t = Sys_State.Vel;
+	USB_In.Data.uint16_t = Sys_State.Vel_SetPt;
 	break;
 	  
+      case USB_CMD_GET_VEL_SETPT:
+	USB_In.Header.Control_Byte = USB_CTL_UINT16;
+	USB_In.Data.uint16_t = Sys_State.Vel_SetPt;
+	break;
+
       case USB_CMD_GET_VEL:
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
 	USB_In.Data.uint16_t = Sys_State.Vel;
@@ -238,15 +245,15 @@ TASK(USB_Process_Packet)
 	USB_In.Data.uint8_t = Sys_State.Mode;
 	break;
 	
-      case USB_CMD_SET_VEL_LIM:
-	Set_Vel_Lim(USB_Out.Data.uint16_t);
+      case USB_CMD_SET_POS_VEL:
+	Set_Pos_Vel(USB_Out.Data.uint16_t);
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
-	USB_In.Data.uint16_t = Sys_State.Vel_Lim;
+	USB_In.Data.uint16_t = Sys_State.Pos_Vel;
        	break;
 
-      case USB_CMD_GET_VEL_LIM:
+      case USB_CMD_GET_POS_VEL:
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
-	USB_In.Data.uint16_t = Sys_State.Vel_Lim;
+	USB_In.Data.uint16_t = Sys_State.Pos_Vel;
 	break;
 
       case USB_CMD_GET_POS_ERR:
@@ -269,6 +276,11 @@ TASK(USB_Process_Packet)
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
 	USB_In.Data.uint16_t = Get_Min_Vel();
 	break;
+
+      case USB_CMD_GET_STATUS:
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	USB_In.Data.uint8_t = Sys_State.Status;
+	break;
 	
       case USB_CMD_AVR_RESET:    
 	USB_Packet_Write();
@@ -290,7 +302,22 @@ TASK(USB_Process_Packet)
       default:
 	break;
 
-      } // End Switch
+      } // End switch(USB_Out.Header.Command_ID)
+
+      // Update IO Settings based on operating mode
+      switch (Sys_State.Mode) {
+	
+      case POS_MODE:
+	Pos_Mode_IO_Update();
+	break;
+	
+      case VEL_MODE:
+	Vel_Mode_IO_Update();
+	break;
+
+      default:
+	break;
+      }
 
       // Write the return USB packet 
       USB_Packet_Write();
@@ -302,6 +329,14 @@ TASK(USB_Process_Packet)
   return;
 }
 
+// ------------------------------------------------------------
+// Function: Set_Pos_SetPt
+//
+// Purpose: Set the position set-point. When the device is in
+// position mode the device tries to move the motor into this
+// position with velocity Pos_Vel. 
+//
+// ------------------------------------------------------------
 static void Set_Pos_SetPt(int32_t Pos)
 {
   uint8_t sreg;
@@ -312,23 +347,36 @@ static void Set_Pos_SetPt(int32_t Pos)
   return;
 }
 
-static void Set_Vel(uint16_t Vel)
+// -------------------------------------------------------------
+// Function: Set_vel
+//
+// Purpose: Sets the current velocity in indices/sec.
+//
+// -------------------------------------------------------------
+static void Set_Vel_SetPt(uint16_t Vel)
 {
+  uint16_t Max_Vel;
   uint8_t sreg;
-  // If device is in position mode do nothing
-  if (Sys_State.Mode == POS_MODE) {
-    return;
-  }
+
+  Max_Vel = Get_Max_Vel();
   // We are in velocity mode - change Sys_State velocity
   sreg = SREG;
   cli();
-  Sys_State.Vel = Vel < Sys_State.Vel_Lim ? Vel : Sys_State.Vel_Lim;
+  Sys_State.Vel_SetPt = Vel < Max_Vel ? Vel : Max_Vel;
   SREG = sreg;
- 
-  Vel_Mode_IO_Update();
+
   return;
 }
 
+// --------------------------------------------------------------
+// Function: Set_Dir
+//
+// Purpose: Sets the devices direction. Using this function the 
+// direction can only be changed when the device is in velocity
+// mode. Allowed values for the direction, Dir, are DIR_POS, and
+// DIR_NEG. 
+//
+// --------------------------------------------------------------
 static void Set_Dir(uint8_t Dir)
 {
   uint8_t sreg;  
@@ -345,29 +393,38 @@ static void Set_Dir(uint8_t Dir)
     Sys_State.Dir = Dir;
   }
   SREG = sreg;
-  Vel_Mode_IO_Update();
   return;
 }
 
-static void Set_Vel_Lim(uint16_t Vel_Lim)
+// ------------------------------------------------------------
+// Function: Set_Pos_Vel
+//
+// Purpose: Sets the positioning velocity. When in position 
+// mode this value is used to determine the move velocity. 
+//
+// -------------------------------------------------------------
+static void Set_Pos_Vel(uint16_t Pos_Vel)
 {
   uint8_t sreg;
   sreg = SREG;
   cli();
-  if (Vel_Lim <= Get_Max_Vel()) {
-    Sys_State.Vel_Lim = Vel_Lim;
+  if (Pos_Vel <= Get_Max_Vel()) {
+    Sys_State.Pos_Vel = Pos_Vel;
   }
-  if (Sys_State.Vel > Vel_Lim) {
-    Sys_State.Vel = Vel_Lim;
+  if ((Sys_State.Mode == POS_MODE) && (Sys_State.Vel > Pos_Vel)) {
+    Sys_State.Vel = Pos_Vel;
   }
   SREG = sreg;
-
-  // If in velocity mode update output settings
-  Vel_Mode_IO_Update();
-
   return;
 }
 
+// -------------------------------------------------------------
+// Function: Set_Mode
+//
+// Purpose: Sets the systems operating mode. Allowed value for 
+// operating mode are VEL_MODE or POS_MODE.
+//
+// -------------------------------------------------------------
 static void Set_Mode(uint8_t Mode)
 {
   uint8_t sreg;
@@ -378,24 +435,26 @@ static void Set_Mode(uint8_t Mode)
     Sys_State.Mode = Mode;
   }
   SREG = sreg;
-
-  // If in velocity mode update output settings
-  if (Sys_State.Mode == VEL_MODE) {
-    Vel_Mode_IO_Update();
-  }
-  else {
-    // 
-    //
-  }
-
   return;
 }
 
+// --------------------------------------------------------------
+// Function: Get_Pos_Err
+//
+// Purpose: Computes the position error.
+//
+// --------------------------------------------------------------
 static int32_t Get_Pos_Err(void)
 {
   return Sys_State.Pos_SetPt - Sys_State.Pos;
 }
 
+// --------------------------------------------------------------
+// Function: Set_Zero_Pos
+//
+// Purpose: Set the systems zero position to the given value.
+//
+// --------------------------------------------------------------
 static void Set_Zero_Pos(int32_t Pos)
 {
   uint8_t sreg;
@@ -407,27 +466,53 @@ static void Set_Zero_Pos(int32_t Pos)
   return;
 }
 
-// Get maximum number of indices per second
+// --------------------------------------------------------------
+// Function: Get_Max_Vel
+//
+// Purpose: Gets maximum allowed velocity in indices/sec.
+//
+// --------------------------------------------------------------
 static uint16_t Get_Max_Vel(void)
 {
-  return F_CPU/(TIMER_PRESCALER*(1+TIMER_TOP_MIN));
+  double Vel;
+  Vel = ((double)F_CPU)/(((double)TIMER_PRESCALER)*(1.0+(double)TIMER_TOP_MIN));
+  return (uint16_t) Vel;
 }
 
-// Get minimum number of indices per second
+// ---------------------------------------------------------------
+// Function: Get_Min_vel
+//
+// Purpose: Gets minimum allowed velocity in indices/sec.
+//
+// ---------------------------------------------------------------
 static uint16_t Get_Min_Vel(void)
 {
-  return F_CPU/(TIMER_PRESCALER*(1+TIMER_TOP_MAX));
+  double Vel;
+  Vel = ((double)F_CPU)/(((double)TIMER_PRESCALER)*(1.0+(double)TIMER_TOP_MAX));
+  return (uint16_t) Vel;
 
 }
 
-// Get Timer top given the desired velocity in indices/sec
+// ---------------------------------------------------------------
+// Function: Get_Top
+//
+// Purpose: Gets the timer top given the desired velocity in 
+// indices/sec.
+// 
+// ----------------------------------------------------------------
 static uint16_t Get_Top(uint16_t Vel)
 {
-  return F_CPU/(TIMER_PRESCALER*Vel)-1;
+  double top;
+  top =  ((double)F_CPU)/(((double)TIMER_PRESCALER)*((double)Vel))-1.0;
+  return (uint16_t) top;
 }
 
-
-// Enable clock and direction pins
+// ---------------------------------------------------------------
+// Function: Clk_Dir_On
+//
+// Purpose: Enables clock and direction pins
+//
+// ---------------------------------------------------------------
 static void Clk_Dir_On(void)
 {
   uint8_t sreg;
@@ -439,7 +524,12 @@ static void Clk_Dir_On(void)
   return;
 }
 
-// Disable clock and direction pins
+// ---------------------------------------------------------------
+// Function: Clk_Dir_Off
+//
+// Purpose: Disables clock and direction pins
+//
+// ---------------------------------------------------------------
 static void Clk_Dir_Off(void)
 {
   uint8_t sreg;
@@ -451,41 +541,115 @@ static void Clk_Dir_Off(void)
   return;
 }
 
-// Upate IO for velocity mode 
-static void Vel_Mode_IO_Update(void)
+// -----------------------------------------------------------------
+// Function: IO_Upate
+//
+// Purpose: Updates the clock and direction pins, sets the output
+// compare register, and the timer top. 
+//
+// -----------------------------------------------------------------
+static void IO_Update(void)
 {
   uint8_t sreg;
-  
   uint16_t timer_top;
-  
-  if (Sys_State.Vel > Get_Min_Vel()) {
 
-    // Velocity 
-    Clk_Dir_On();
+  sreg = SREG;
+  cli();
 
-    sreg = SREG;
-    cli();
-    // Set direction line
-    if (Sys_State.Dir == DIR_POS) {
-      CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
-    }
-    else {
-      CLK_DIR_PORT &= ~(1 << DIR_PORT_PIN);
-    }
-
-    // Update clock frequency
-    timer_top = Get_Top(Sys_State.Vel);
-    timer_top = timer_top > TIMER_TOP_MIN ? timer_top : TIMER_TOP_MIN;
-    timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
-    ICR3 = timer_top;
-    SREG = sreg;
+  // Set direction line
+  if (Sys_State.Dir == DIR_POS) {
+    CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
   }
   else {
-    Clk_Dir_Off();
+    CLK_DIR_PORT &= ~(1 << DIR_PORT_PIN);
   }
+
+  // Compute top
+  timer_top = Get_Top(Sys_State.Vel);
+  timer_top = timer_top > TIMER_TOP_MIN ? timer_top : TIMER_TOP_MIN;
+  timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
+
+  // Update clock frequency and pulse width 
+
+  OCR3B = timer_top/2;
+  ICR3 = timer_top;
+  SREG = sreg;
+
   return;
 }
 
+// ------------------------------------------------------------------
+// Function: Pos_Mode_IO_Update
+//
+// Purpose: Updates IO for position mode. Sets direction based on the
+// sign of the position error. If not already at the set point sets
+// the velocity, turns in clock and direction command, and sets 
+// status to RUNNING.
+//
+// ------------------------------------------------------------------
+static void Pos_Mode_IO_Update(void)
+{
+  int32_t Pos_Err;
+  
+  Pos_Err = Get_Pos_Err();
+
+  // Set direction based on position error
+  if (Pos_Err > 0) {
+    Sys_State.Dir = DIR_POS;
+  }
+  else {
+    Sys_State.Dir = DIR_NEG;
+  }
+
+  // If we are not at the set point set velocity, turn on clock and 
+  // direction commands, and set status to RUNNING.
+  if (Pos_Err != 0) {
+    Clk_Dir_On();
+    Sys_State.Vel = Sys_State.Pos_Vel;
+    Sys_State.Status = RUNNING;
+  }
+  else {
+    Sys_State.Vel = 0;
+    Clk_Dir_Off();
+    Sys_State.Status = STOPPED;
+  }
+
+  // Update the IO
+  IO_Update();
+
+  return;
+}
+
+// --------------------------------------------------------------------
+// Function: Vel_Mode_IO_Update
+//
+// Purpose: Upates IO for velocity mode. If velocity is greater than 
+// minimum allowed value then the clock and direction commands are 
+// turned on and the status is set to RUNNING. 
+//
+// -------------------------------------------------------------------- 
+static void Vel_Mode_IO_Update(void)
+{
+  // Set velocity to set-point velocity
+  if (Sys_State.Vel_SetPt > Get_Min_Vel()) {
+    Sys_State.Vel = Sys_State.Vel_SetPt;
+    Clk_Dir_On();
+    Sys_State.Status = RUNNING;
+  }
+  else {
+    Sys_State.Vel = 0;
+    Clk_Dir_Off();
+    Sys_State.Status = STOPPED;
+  }
+  IO_Update();
+  return;
+}
+
+// ------------------------------------------------------------------
+// Function: USB_Packet_Read
+//
+// Purpose: Reads a USB data packect.
+// ------------------------------------------------------------------
 static void USB_Packet_Read(void)
 {
   uint8_t *USB_OutPtr = (uint8_t *) &USB_Out;
@@ -499,6 +663,11 @@ static void USB_Packet_Read(void)
   return;
 }
 
+// -------------------------------------------------------------------
+// Function: USB_Packet_Write
+//
+// Purpose: Writes a USB data packet.
+// -------------------------------------------------------------------
 static void USB_Packet_Write(void)
 {
   uint8_t *USB_InPtr = (uint8_t *) &USB_In;
@@ -534,6 +703,13 @@ static void USB_Packet_Write(void)
   return;
 }
 
+// ------------------------------------------------------------------
+// Function: REG_16bit_Write
+//
+// Purpose: Writes data to 16 bit register disabling and 
+// re-enabling inerrupts.
+//
+// -------------------------------------------------------------------
 static void REG_16bit_Write (volatile uint16_t * reg, volatile uint16_t val)
 {
   // See "Accessing 16-bit Registers" of the AT90USB1287 datasheet 
@@ -548,21 +724,38 @@ static void REG_16bit_Write (volatile uint16_t * reg, volatile uint16_t val)
   return;
 }
 
-
+// ------------------------------------------------------------------
+// Function: ISR(TIMER3_OVF_vect)  
+//
+// Purpose: Timer overflow interrupt. Increments/Decrement the 
+// position counter if system is running. If position mode is set 
+// the current position is compared with the set-point. If they are 
+// equal the clock and direction commands and disabled, the 
+// velocity is set to zero and the status is set to Stopped.
+//
+// ------------------------------------------------------------------  
 ISR(TIMER3_OVF_vect) {
 
-  switch (Sys_State.Mode) {
+  // If Stopped do nothing
+  if (Sys_State.Status == RUNNING) {
 
-  case POS_MODE:
-    break;
+    // Update Position
+    if (Sys_State.Dir == DIR_POS) {
+      Sys_State.Pos += (int32_t)1;
+    }
+    else {
+      Sys_State.Pos -= (int32_t)1;
+    }
 
-  case VEL_MODE:
-    // Nothing to do here
-    break;
+    if (Sys_State.Mode == POS_MODE) {
+      // When we hit the set-point stop the clock and direction commands
+      if (Sys_State.Pos == Sys_State.Pos_SetPt) {
+	Clk_Dir_Off();
+	Sys_State.Vel = 0;
+	Sys_State.Status = STOPPED;
+      }
+    } 
 
-  default:
-    break;
-
-  }
+  } // if (Sys_State.Status == RUNNING)
   return;
 }
