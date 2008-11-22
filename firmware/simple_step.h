@@ -24,8 +24,8 @@
 #define USB_CMD_SET_VEL_SETPT    3
 #define USB_CMD_GET_VEL_SETPT    4
 #define USB_CMD_GET_VEL          5
-#define USB_CMD_SET_DIR          6
-#define USB_CMD_GET_DIR          7
+#define USB_CMD_SET_DIR_SETPT    6
+#define USB_CMD_GET_DIR_SETPT    7
 #define USB_CMD_SET_MODE         8
 #define USB_CMD_GET_MODE         9
 #define USB_CMD_SET_POS_VEL     10
@@ -35,11 +35,13 @@
 #define USB_CMD_GET_MAX_VEL     14
 #define USB_CMD_GET_MIN_VEL     15
 #define USB_CMD_GET_STATUS      16
+#define USB_CMD_SET_STATUS      17
+#define USB_CMD_GET_DIR         18
 #define USB_CMD_AVR_RESET      200
 #define USB_CMD_AVR_DFU_MODE   201
 #define USB_CMD_TEST           251
 
-// Usb ctl values - determine data type
+// Usb ctl values - used to determine data type
 #define USB_CTL_UINT8  0
 #define USB_CTL_UINT16 1
 #define USB_CTL_INT32  2
@@ -48,11 +50,11 @@
 #define VEL_MODE 0
 #define POS_MODE 1
 
-// Directions
+// Motor directions
 #define DIR_POS 0
 #define DIR_NEG 1
 
-// Maximum velocity Limit
+// Default positioning velocity 
 #define DEFAULT_POS_VEL 5000
 
 // Prescaler for pwm timer
@@ -113,16 +115,27 @@ typedef struct {
   Data_t   Data;
 } USB_InOut_t; 
 
+// Position mode parameter structure
+typedef struct {
+  int32_t   Pos_SetPt;   // Set-point motor position 
+  uint16_t  Pos_Vel;     // Positioning velocity     
+} Pos_Mode_t;
+
+// Velocity mode parameter structure
+typedef struct {
+  uint16_t  Vel_SetPt;   // Set-point velocity       
+  uint8_t   Dir_SetPt;   // Set-point direction   
+} Vel_Mode_t;
+
 // Sytem state structure
 typedef struct {
-  uint8_t   Mode;        // Operating mode
-  uint8_t   Dir;         // Motor Direction
-  uint16_t  Vel;         // Actual motor velocity
-  int32_t   Pos;         // Actual motor position
-  int32_t   Pos_SetPt;   // Set-point motor position
-  uint16_t  Pos_Vel;     // Positioning velocity
-  uint16_t  Vel_SetPt;   // Set-point velocity
-  uint8_t   Status;      // Motor status (RUNNING or STOPPED)
+  uint8_t    Mode;        // Operating mode
+  uint8_t    Dir;         // Motor Direction
+  uint16_t   Vel;         // Actual motor velocity
+  int32_t    Pos;         // Actual motor position
+  Pos_Mode_t Pos_Mode;    // Position mode parameters
+  Vel_Mode_t Vel_Mode;    // Velocity mode parameters
+  uint8_t    Status;      // Motor status (RUNNING or STOPPED)
 } Sys_State_t;
 
 /// Global variables
@@ -134,9 +147,8 @@ volatile Sys_State_t Sys_State = {
  Dir:       DIR_POS,
  Vel:       0,
  Pos:       0,
- Pos_SetPt: 0,
- Pos_Vel:   DEFAULT_POS_VEL,
- Vel_SetPt: 0,
+ Pos_Mode:  {Pos_SetPt: 0, Pos_Vel: DEFAULT_POS_VEL},
+ Vel_Mode:  {Vel_SetPt: 0, Dir_SetPt: DIR_POS},
  Status:    STOPPED,
 };
 
@@ -155,10 +167,11 @@ static void REG_16bit_Write(volatile uint16_t * reg, volatile uint16_t val);
 static void IO_Init(void);
 static void Set_Pos_SetPt(int32_t Pos);
 static void Set_Vel_SetPt(uint16_t Vel);
-static void Set_Dir(uint8_t Dir);
+static void Set_Dir_SetPt(uint8_t Dir);
 static void Set_Pos_Vel(uint16_t Pos_Vel);
 static void Set_Mode(uint8_t Mode);
 static void Set_Zero_Pos(int32_t Pos);
+static void Set_Status(uint8_t Status);
 static int32_t Get_Pos_Err(void);
 static uint16_t Get_Max_Vel(void);
 static uint16_t Get_Min_Vel(void);

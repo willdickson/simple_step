@@ -160,6 +160,13 @@ EVENT_HANDLER(USB_CreateEndpoints)
   return;
 }
 
+// --------------------------------------------------------------
+// Function: USB_Process_Packet
+//
+// Purpose: Handles USB communications. This is basically a big
+// switch yard for the USB commands. 
+//
+// --------------------------------------------------------------
 TASK(USB_Process_Packet)
 {
   // Check if the USB System is connected to a Host  
@@ -189,23 +196,23 @@ TASK(USB_Process_Packet)
       case USB_CMD_SET_POS_SETPT:
 	Set_Pos_SetPt(USB_Out.Data.int32_t);
 	USB_In.Header.Control_Byte = USB_CTL_INT32;
-	USB_In.Data.int32_t = Sys_State.Pos_SetPt;
+	USB_In.Data.int32_t = Sys_State.Pos_Mode.Pos_SetPt;
 	break;
 	
       case USB_CMD_GET_POS_SETPT:
 	USB_In.Header.Control_Byte = USB_CTL_INT32;
-	USB_In.Data.int32_t = Sys_State.Pos_SetPt;
+	USB_In.Data.int32_t = Sys_State.Pos_Mode.Pos_SetPt;
 	break;
 
       case USB_CMD_SET_VEL_SETPT:
 	Set_Vel_SetPt(USB_Out.Data.uint16_t);
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
-	USB_In.Data.uint16_t = Sys_State.Vel_SetPt;
+	USB_In.Data.uint16_t = Sys_State.Vel_Mode.Vel_SetPt;
 	break;
 	  
       case USB_CMD_GET_VEL_SETPT:
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
-	USB_In.Data.uint16_t = Sys_State.Vel_SetPt;
+	USB_In.Data.uint16_t = Sys_State.Vel_Mode.Vel_SetPt;
 	break;
 
       case USB_CMD_GET_VEL:
@@ -213,15 +220,15 @@ TASK(USB_Process_Packet)
 	USB_In.Data.uint16_t = Sys_State.Vel;
 	break;
 	
-      case USB_CMD_SET_DIR:
-	Set_Dir(USB_Out.Data.uint8_t);
+      case USB_CMD_SET_DIR_SETPT:
+	Set_Dir_SetPt(USB_Out.Data.uint8_t);
 	USB_In.Header.Control_Byte = USB_CTL_UINT8;
-	USB_In.Data.uint8_t = Sys_State.Dir;
+	USB_In.Data.uint8_t = Sys_State.Vel_Mode.Dir_SetPt;
 	break;
 	
-      case USB_CMD_GET_DIR:
+      case USB_CMD_GET_DIR_SETPT:
 	USB_In.Header.Control_Byte = USB_CTL_UINT8;
-	USB_In.Data.uint8_t = Sys_State.Dir;
+	USB_In.Data.uint8_t = Sys_State.Vel_Mode.Dir_SetPt;
 	break;
 	
       case USB_CMD_SET_MODE:
@@ -238,12 +245,12 @@ TASK(USB_Process_Packet)
       case USB_CMD_SET_POS_VEL:
 	Set_Pos_Vel(USB_Out.Data.uint16_t);
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
-	USB_In.Data.uint16_t = Sys_State.Pos_Vel;
+	USB_In.Data.uint16_t = Sys_State.Pos_Mode.Pos_Vel;
        	break;
 
       case USB_CMD_GET_POS_VEL:
 	USB_In.Header.Control_Byte = USB_CTL_UINT16;
-	USB_In.Data.uint16_t = Sys_State.Pos_Vel;
+	USB_In.Data.uint16_t = Sys_State.Pos_Mode.Pos_Vel;
 	break;
 
       case USB_CMD_GET_POS_ERR:
@@ -270,6 +277,17 @@ TASK(USB_Process_Packet)
       case USB_CMD_GET_STATUS:
 	USB_In.Header.Control_Byte = USB_CTL_UINT8;
 	USB_In.Data.uint8_t = Sys_State.Status;
+	break;
+
+      case USB_CMD_SET_STATUS:
+	Set_Status(USB_Out.Data.uint8_t);
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	USB_In.Data.uint8_t = Sys_State.Status;
+	break;
+
+      case USB_CMD_GET_DIR:
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	USB_In.Data.uint8_t = Sys_State.Dir;
 	break;
 	
       case USB_CMD_AVR_RESET:    
@@ -319,6 +337,25 @@ TASK(USB_Process_Packet)
   return;
 }
 
+// -------------------------------------------------------------
+// Function: Set_Status
+//
+// Purpose: Sets the device status - to RUNNING or STOPPED.
+//
+// -------------------------------------------------------------
+static void Set_Status(uint8_t Status)
+{
+  uint8_t sreg;
+
+  if ((Status == RUNNING) || (Status == STOPPED)) {
+    sreg = SREG;
+    cli();
+    Sys_State.Status = Status;
+    SREG = sreg;
+  }
+  return;
+}
+
 // ------------------------------------------------------------
 // Function: Set_Pos_SetPt
 //
@@ -332,7 +369,7 @@ static void Set_Pos_SetPt(int32_t Pos)
   uint8_t sreg;
   sreg = SREG;
   cli();
-  Sys_State.Pos_SetPt = Pos;
+  Sys_State.Pos_Mode.Pos_SetPt = Pos;
   SREG = sreg;
   return;
 }
@@ -352,35 +389,29 @@ static void Set_Vel_SetPt(uint16_t Vel)
   // We are in velocity mode - change Sys_State velocity
   sreg = SREG;
   cli();
-  Sys_State.Vel_SetPt = Vel < Max_Vel ? Vel : Max_Vel;
+  Sys_State.Vel_Mode.Vel_SetPt = Vel < Max_Vel ? Vel : Max_Vel;
   SREG = sreg;
 
   return;
 }
 
 // --------------------------------------------------------------
-// Function: Set_Dir
+// Function: Set_Dir_SetPt
 //
-// Purpose: Sets the devices direction. Using this function the 
-// direction can only be changed when the device is in velocity
-// mode. Allowed values for the direction, Dir, are DIR_POS, and
+// Purpose: Sets the devices direction set-point - used in 
+// velocity mode to determine the direction of motor rotation.
+// Allowed values for the direction, Dir, are DIR_POS, and
 // DIR_NEG. 
 //
 // --------------------------------------------------------------
-static void Set_Dir(uint8_t Dir)
+static void Set_Dir_SetPt(uint8_t Dir)
 {
   uint8_t sreg;  
   
-  // If device in is position mode do nothing
-  if (Sys_State.Mode == POS_MODE) {
-    return;
-  }
-
-  // We are in velocity mode change the direction
   sreg = SREG;
   cli();
   if ((Dir == DIR_POS) || (Dir == DIR_NEG)) {
-    Sys_State.Dir = Dir;
+    Sys_State.Vel_Mode.Dir_SetPt = Dir;
   }
   SREG = sreg;
   return;
@@ -399,10 +430,10 @@ static void Set_Pos_Vel(uint16_t Pos_Vel)
   sreg = SREG;
   cli();
   if (Pos_Vel <= Get_Max_Vel()) {
-    Sys_State.Pos_Vel = Pos_Vel;
+    Sys_State.Pos_Mode.Pos_Vel = Pos_Vel;
   }
-  if ((Sys_State.Mode == POS_MODE) && (Sys_State.Vel > Pos_Vel)) {
-    Sys_State.Vel = Pos_Vel;
+  else {
+    Sys_State.Pos_Mode.Pos_Vel = Get_Max_Vel();
   }
   SREG = sreg;
   return;
@@ -436,7 +467,7 @@ static void Set_Mode(uint8_t Mode)
 // --------------------------------------------------------------
 static int32_t Get_Pos_Err(void)
 {
-  return Sys_State.Pos_SetPt - Sys_State.Pos;
+  return Sys_State.Pos_Mode.Pos_SetPt - Sys_State.Pos;
 }
 
 // --------------------------------------------------------------
@@ -450,7 +481,7 @@ static void Set_Zero_Pos(int32_t Pos)
   uint8_t sreg;
   sreg = SREG;
   cli();
-  Sys_State.Pos_SetPt -= Pos;
+  Sys_State.Pos_Mode.Pos_SetPt -= Pos;
   Sys_State.Pos -= Pos;
   SREG = sreg;
   return;
@@ -573,17 +604,16 @@ static void IO_Update(void)
 //
 // Purpose: Updates IO for position mode. Sets direction based on the
 // sign of the position error. If not already at the set point sets
-// the velocity, turns in clock and direction command, and sets 
-// status to RUNNING.
+// the velocity to the positioning velocity and enables clock and 
+// direction output.
 //
 // ------------------------------------------------------------------
 static void Pos_Mode_IO_Update(void)
 {
   int32_t Pos_Err;
-  
-  Pos_Err = Get_Pos_Err();
 
   // Set direction based on position error
+  Pos_Err = Get_Pos_Err();
   if (Pos_Err > 0) {
     Sys_State.Dir = DIR_POS;
   }
@@ -593,20 +623,15 @@ static void Pos_Mode_IO_Update(void)
 
   // If we are not at the set point set velocity, turn on clock and 
   // direction commands, and set status to RUNNING.
-  if (Pos_Err != 0) {
+  if ((Pos_Err != 0) && (Sys_State.Status==RUNNING)) {
     Clk_Dir_On();
-    Sys_State.Vel = Sys_State.Pos_Vel;
-    Sys_State.Status = RUNNING;
+    Sys_State.Vel = Sys_State.Pos_Mode.Pos_Vel;
   }
   else {
     Sys_State.Vel = 0;
     Clk_Dir_Off();
-    Sys_State.Status = STOPPED;
   }
-
-  // Update the IO
   IO_Update();
-
   return;
 }
 
@@ -615,21 +640,23 @@ static void Pos_Mode_IO_Update(void)
 //
 // Purpose: Upates IO for velocity mode. If velocity is greater than 
 // minimum allowed value then the clock and direction commands are 
-// turned on and the status is set to RUNNING. 
+// turned on.
 //
 // -------------------------------------------------------------------- 
 static void Vel_Mode_IO_Update(void)
 {
+  Sys_State.Dir = Sys_State.Vel_Mode.Dir_SetPt;
+
   // Set velocity to set-point velocity
-  if (Sys_State.Vel_SetPt > Get_Min_Vel()) {
-    Sys_State.Vel = Sys_State.Vel_SetPt;
+  if ((Sys_State.Status==RUNNING) && 
+      (Sys_State.Vel_Mode.Vel_SetPt > Get_Min_Vel())) { 
+      
+    Sys_State.Vel = Sys_State.Vel_Mode.Vel_SetPt;
     Clk_Dir_On();
-    Sys_State.Status = RUNNING;
   }
   else {
     Sys_State.Vel = 0;
     Clk_Dir_Off();
-    Sys_State.Status = STOPPED;
   }
   IO_Update();
   return;
@@ -727,7 +754,7 @@ static void REG_16bit_Write (volatile uint16_t * reg, volatile uint16_t val)
 ISR(TIMER3_OVF_vect) {
 
   // If Stopped do nothing
-  if (Sys_State.Status == RUNNING) {
+  if ((Sys_State.Status == RUNNING) && (Sys_State.Vel > 0)) {
 
     // Update Position
     if (Sys_State.Dir == DIR_POS) {
@@ -739,13 +766,12 @@ ISR(TIMER3_OVF_vect) {
 
     if (Sys_State.Mode == POS_MODE) {
       // When we hit the set-point stop the clock and direction commands
-      if (Sys_State.Pos == Sys_State.Pos_SetPt) {
+      if (Sys_State.Pos == Sys_State.Pos_Mode.Pos_SetPt) {
 	Clk_Dir_Off();
 	Sys_State.Vel = 0;
-	Sys_State.Status = STOPPED;
       }
     } 
 
-  } // if (Sys_State.Status == RUNNING)
+  } // if ((Sys_State.Status == RUNNING) && ...
   return;
 }
