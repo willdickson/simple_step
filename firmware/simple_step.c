@@ -3,6 +3,7 @@
 // Purpose: firmware for simple stepper motor controller w/ USB interface based 
 // on the at90usb1287 microcontroller. 
 //
+//
 // Author: Will Dickson
 //
 // ------------------------------------------------------------------------------
@@ -62,6 +63,9 @@ int main(void)
 
 static void IO_Init(void)
 {
+  // Set data direction of trigger pins to output
+  VEL_TRIG_DDR |= (1 << VEL_TRIG_DDR_PIN);
+
   // Set all PINS on clock and direction port low
   CLK_DIR_PORT = 0x0; 
 
@@ -72,11 +76,11 @@ static void IO_Init(void)
   TIMER_OCR = TIMER_TOP_MAX/2; 
   
   // Set TOP high
-  TIMER_ICR = TIMER_TOP_MAX;  // 10 msec (100 Hz)
+  TIMER_TOP = TIMER_TOP_MAX;  // 10 msec (100 Hz)
 
   // Set timer control registers, connect OCnB to pin and set 
-  // to fast PWM mode.
-  TIMER_TCCRA = 0x22; 
+  // to fast PWM mode with double buffering of TOP
+  TIMER_TCCRA = 0x23; 
   TIMER_TCCRB = 0x18; 
  
   // Set Timer prescaler
@@ -338,6 +342,30 @@ TASK(USB_Process_Packet)
 }
 
 // -------------------------------------------------------------
+// Function: Vel_Trig_Hi
+//
+// Purpose: Sets the velocity trigger pin high.
+//
+// -------------------------------------------------------------
+static void Vel_Trig_Hi(void)
+{
+  VEL_TRIG_PORT |= (1 << VEL_TRIG_PIN);
+  return;
+}
+
+// -------------------------------------------------------------
+// Function: Vel_Trig_Lo
+//
+// Purpose: Sets the velocity trigger pin low.
+//
+// -------------------------------------------------------------
+static void Vel_Trig_Lo(void)
+{
+  VEL_TRIG_PORT &= ~(1 << VEL_TRIG_PIN);
+  return;
+}
+
+// -------------------------------------------------------------
 // Function: Set_Status
 //
 // Purpose: Sets the device status - to RUNNING or STOPPED.
@@ -578,7 +606,7 @@ static void IO_Update(void)
   cli();
 
   // Set direction line
-  if (Sys_State.Dir == DIR_POS) {
+  if (Sys_State.Dir == DIR_NEG) {
     CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
   }
   else {
@@ -591,9 +619,8 @@ static void IO_Update(void)
   timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
 
   // Update clock frequency and pulse width 
-
   TIMER_OCR = timer_top/2;
-  TIMER_ICR = timer_top;
+  TIMER_TOP = timer_top;
   SREG = sreg;
 
   return;
@@ -649,14 +676,15 @@ static void Vel_Mode_IO_Update(void)
 
   // Set velocity to set-point velocity
   if ((Sys_State.Status==RUNNING) && 
-      (Sys_State.Vel_Mode.Vel_SetPt > Get_Min_Vel())) { 
-      
+      (Sys_State.Vel_Mode.Vel_SetPt > Get_Min_Vel())) {       
     Sys_State.Vel = Sys_State.Vel_Mode.Vel_SetPt;
     Clk_Dir_On();
+    Vel_Trig_Hi();
   }
   else {
     Sys_State.Vel = 0;
     Clk_Dir_Off();
+    Vel_Trig_Lo();
   }
   IO_Update();
   return;
@@ -770,8 +798,7 @@ ISR(TIMER3_OVF_vect) {
 	Clk_Dir_Off();
 	Sys_State.Vel = 0;
       }
-    } 
-
+    }
   } // if ((Sys_State.Status == RUNNING) && ...
   return;
 }

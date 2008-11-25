@@ -66,8 +66,8 @@
 #define TIMER_TOP_MAX 65535   // 65535 => 15.52Hz
 
 // Timer top and output compare registers
-#define TIMER_ICR ICR3  
-#define TIMER_OCR OCR3B 
+#define TIMER_TOP OCR3A  // Using OCR3A gives double buffering of top  
+#define TIMER_OCR OCR3B  // Sets PWM (Clock) high time
 
 // Timer control registers
 #define TIMER_TCCRA TCCR3A
@@ -77,7 +77,7 @@
 #define TIMER_TIMSK TIMSK3 // Mask register
 #define TIMER_TOIE  TOIE3  // Enable
 
-// Clock and direction directions reg and pins
+// Clock and direction DDR register and pins
 #define CLK_DIR_DDR DDRC
 #define CLK_DDR_PIN DDC5
 #define DIR_DDR_PIN DDC4
@@ -90,6 +90,14 @@
 // States for run status flag
 #define RUNNING 1
 #define STOPPED 0
+
+// Velocity mode trigger DDR register and pins
+#define VEL_TRIG_DDR DDRC
+#define VEL_TRIG_DDR_PIN DDC0
+
+// Velocity mode trigger port and pins
+#define VEL_TRIG_PORT PORTC
+#define VEL_TRIG_PIN PC0
 
 // Software reset 
 #define AVR_RESET() wdt_enable(WDTO_30MS); while(1) {}
@@ -181,5 +189,7 @@ static void Clk_Dir_Off(void);
 static void IO_Update(void);
 static void Vel_Mode_IO_Update(void);
 static void Pos_Mode_IO_Update(void);
+static void Vel_Trig_Hi(void);
+static void Vel_Trig_Lo(void);
 
 #endif // _SIMPLE_STEP_H_
