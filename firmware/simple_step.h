@@ -41,10 +41,14 @@
 #define USB_CMD_AVR_DFU_MODE   201
 #define USB_CMD_TEST           251
 
-// Usb ctl values - used to determine data type
+// Usb ctl values for bulk in packets - used to determine data type
 #define USB_CTL_UINT8  0
 #define USB_CTL_UINT16 1
 #define USB_CTL_INT32  2
+
+// Usb ctl value for USB bulk out packects
+#define USB_CTL_UPDATE 200
+#define USB_CTL_NO_UPDATE 201
 
 // Opertaing modes
 #define VEL_MODE 0

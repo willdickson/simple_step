@@ -316,19 +316,23 @@ TASK(USB_Process_Packet)
 
       } // End switch(USB_Out.Header.Command_ID)
 
-      // Update IO Settings based on operating mode
-      switch (Sys_State.Mode) {
-	
-      case POS_MODE:
-	Pos_Mode_IO_Update();
-	break;
-	
-      case VEL_MODE:
-	Vel_Mode_IO_Update();
-	break;
+      
+      if (USB_Out.Header.Control_Byte == USB_CTL_UPDATE) {
 
-      default:
-	break;
+	// Update IO Settings based on operating mode
+	switch (Sys_State.Mode) {
+	
+	case POS_MODE:
+	  Pos_Mode_IO_Update();
+	  break;
+	
+	case VEL_MODE:
+	  Vel_Mode_IO_Update();
+	  break;
+	  
+	default:
+	  break;
+	}
       }
 
       // Write the return USB packet 

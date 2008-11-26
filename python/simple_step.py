@@ -51,10 +51,14 @@ USB_CMD_AVR_RESET = 200
 USB_CMD_AVR_DFU_MODE = 201
 USB_CMD_TEST = 251
 
-# Control values
+# Control values for bulk in packets
 USB_CTL_UINT8 = 0
 USB_CTL_UINT16 = 1
 USB_CTL_INT32 = 2
+
+# Control values for bulk out packets
+USB_CTL_UPDATE = 200
+USB_CTL_NO_UPDATE = 201
 
 # Integer values for opertaing modes - usb in usb set/get
 VELOCITY_MODE = 0
@@ -280,7 +284,7 @@ class Simple_Step:
         return val
 
 
-    def usb_set_cmd(self,cmd_id,val):
+    def usb_set_cmd(self,cmd_id,val,io_update=True):
         """
         Generic usb set command. Sends set command w/ value to device
         and extracts the value returned
@@ -295,7 +299,12 @@ class Simple_Step:
     
         # Send command + value and receive data
         self.output_buffer[0] = chr(cmd_id%0x100)
-        ctl_val = TYPE2USB_CTL_DICT[val_type]
+        if io_update == True:
+            ctl_val = USB_CTL_UPDATE
+        elif io_update == False:
+            ctl_val = USB_CTL_NO_UPDATE
+        else:
+            raise ValueError, "io_update must be True or False"
         self.output_buffer[1] = chr(ctl_val%0x100)
         val_bytes = self.__int_to_bytes(val,val_type)
         for i,byte in enumerate(val_bytes):
@@ -378,7 +387,7 @@ class Simple_Step:
         set_pt = self.usb_get_cmd(USB_CMD_GET_POS_SETPT)
         return set_pt
 
-    def set_vel_setpt(self,vel_setpt):
+    def set_vel_setpt(self,vel_setpt,io_update=True):
         """
         Sets the motor velocity set-point in indices/sec.  The velocity 
         is always nonnegative - the direction of rotation is determined
@@ -391,6 +400,15 @@ class Simple_Step:
         Argument: 
           vel_setpt = the motor velocity (indices/sec),  always >= 0
         
+        Keywords:
+          io_update = True (Default) or False. If true the change in 
+                      parameter will have an immediate effect on the 
+                      output of at90usb board. If False the change will 
+                      will have an effect on the output only after the 
+                      next command with io_update=True. io_update is 
+                      implicitly True for all commands other then those
+                      which exciplity have it as a keyword argument.
+                      
         Return: the actual motor velocity obtained indice/sec. 
         """
         try:
@@ -401,7 +419,9 @@ class Simple_Step:
             raise ValueError, "vel_sept must be >= 0"
 
         # Send usb command
-        vel_setpt = self.usb_set_cmd(USB_CMD_SET_VEL_SETPT,vel_setpt)
+        vel_setpt = self.usb_set_cmd(USB_CMD_SET_VEL_SETPT,
+                                     vel_setpt,
+                                     io_update=io_update)
         return vel_setpt
 
     def get_vel_setpt(self):
@@ -420,7 +440,7 @@ class Simple_Step:
         vel = self.usb_get_cmd(USB_CMD_GET_VEL)
         return vel
         
-    def set_dir_setpt(self,dir_setpt):
+    def set_dir_setpt(self,dir_setpt,io_update=True):
         """
         Sets the set-point motor rotation direction used when the device
         is in velocity mode. The value can be set using the strings 
@@ -431,6 +451,16 @@ class Simple_Step:
 
           dir = the set-point motor rotation direction either strings 
           ('positive'/'negative') or integers (POSITIVE or NEGATIVE)
+
+
+        Keywords:
+          io_update = True (Default) or False. If true the change in 
+                      parameter will have an immediate effect on the 
+                      output of at90usb board. If False the change will 
+                      will have an effect on the output only after the 
+                      next command with io_update=True. io_update is 
+                      implicitly True for all commands other then those
+                      which exciplity have it as a keyword argument.
           
         Return: the motor rotation direction set-point
         """
@@ -450,7 +480,9 @@ class Simple_Step:
                 raise ValueError, err_msg
                        
         # Send usb command
-        dir_setpt_val = self.usb_set_cmd(USB_CMD_SET_DIR_SETPT,dir_setpt_val)
+        dir_setpt_val = self.usb_set_cmd(USB_CMD_SET_DIR_SETPT,
+                                         dir_setpt_val,
+                                         io_update=io_update)
 
         # If input direction is a string we return a string 
         if type(dir_setpt) == str:
@@ -782,9 +814,108 @@ class Simple_Step:
         return
 
 
-    def soft_ramp_to_vel(self,vel,accel):
-        pass
+    def soft_ramp_to_vel(self,vel,dir,accel,dt=0.025):
+        """
+        Performs a ramp (constant acceleration) from the current
+        velocity to the specified velocity. The ramp is performed in
+        software on the PC side by setting a time course of velocity
+        set-points.  For this reason the time course of accelerations
+        will not be exact.  The purpose of this function is to aid
+        changing the velocity of loads with a lot of inertia.  Note,
+        this function will place the at90usb device in velocity mode
+        and will start the device.
 
+        Arguments:
+          vel   = the desired velocity in ind/sec
+          dir   = the desired direction ('positive'/'negative') or 
+                  (POSITIVE/NEGATIVE).
+          accel = the desired acceleration in ind/sec**2
+          
+        Keywords:
+          dt    = time step for velocity updates is sec.  
+          
+        
+        Return: None.
+        """
+        # Check input arguments
+        vel = int(vel)
+        if vel < 0 :
+            raise ValueError, "vel must be > 0"            
+                  
+        accel = int(accel)
+        if accel < 0:
+            raise ValueError, "accel must > 0"
+    
+        dt = float(dt)
+        if dt <= 0:
+            raise ValueError, "dt must be >= 0"
+        
+        if not dir in ('positive', 'negative'):
+            try:
+                dir = VAL2DIR_DICT[dir]
+            except:
+                raise ValueError, "dir must be valid direction"
+                
+        # Get signed version of desired velocity 
+        if dir == 'positive':
+            vel_new = vel
+        else:
+            vel_new = -vel
+
+        # Set stop device and set mode if necessary
+        if self.get_mode() == 'position':
+            self.stop()
+            self.set_vel_setpt(0)
+            self.set_mode('velocity')
+            
+        # Get signed version of current velocity 
+        dir_cur = self.get_dir()
+        if dir_cur == 'positive':
+            vel_cur = self.get_vel()
+        else:
+            vel_cur = -self.get_vel()
+        
+        # If we are currently at the desired velocity do nothing
+        if vel_new == vel_cur:
+            return
+
+        # Set the sign of the acceleration 
+        if vel_new < vel_cur:
+            accel = -accel
+
+        # Get acceleration time and number of acceleration points
+        T = abs(vel_new-vel_cur)/float(accel)
+        N = abs(int(T/dt))
+
+        # We won't quite make it with even time steps - this is for the last step
+        dt_last = abs(vel_new - int(vel_cur + dt*N*accel))/abs(float(accel))
+
+        # Start device if it is stopped
+        if self.get_status() == 'stopped':
+            self.start()
+
+        # Ramp to desired velocity
+        for i in range(0,N):
+
+            # Set direction and velocity
+            v = int(vel_cur + dt*(i+1)*accel)
+            if v < 0:
+                self.set_dir_setpt('negative', io_update=False)    
+            else:
+                self.set_dir_setpt('positive', io_update=False)   
+            self.set_vel_setpt(abs(v))
+
+            # Sleep until next update
+            if i < N-1:
+                time.sleep(dt)
+            else:
+                time.sleep(dt_last)
+        
+        # Set to final velocity and direction
+        self.set_dir_setpt(dir, io_update=False)
+        self.set_vel_setpt(vel)            
+        return
+        
 
     def soft_ramp_to_pos(self,pos,accel,pos_vel=None,N=100):
         """
@@ -953,7 +1084,7 @@ if __name__=='__main__':
         dev.print_values()
         dev.stop()
         
-    if 1:
+    if 0:
 
         dev = Simple_Step()
 
@@ -963,8 +1094,8 @@ if __name__=='__main__':
         dev.start()
 
         print 'increasing velocity'
-        for i in range(0,500):
-            vel = i*100 + 100
+        for i in range(0,1000):
+            vel = i*50 + 50
             dev.set_vel_setpt(vel)
             time.sleep(0.01)
 
@@ -977,4 +1108,18 @@ if __name__=='__main__':
             
         dev.stop()
         dev.print_values()
+        dev.close()
+
+
+    if 1:
+        dev = Simple_Step()
+
+        if dev.get_dir() == 'positive':
+            dev.soft_ramp_to_vel(12110,'negative', 50000)
+        else:
+            dev.soft_ramp_to_vel(15212, POSITIVE, 10000)
+        dev.print_values()
+        time.sleep(5.0)
+
+        dev.soft_ramp_to_vel(0,dev.get_dir(),50000)
         dev.close()
