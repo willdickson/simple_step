@@ -833,22 +833,21 @@ class Simple_Step:
           
         Keywords:
           dt    = time step for velocity updates is sec.  
-          
-        
+                  
         Return: None.
         """
         # Check input arguments
         vel = int(vel)
         if vel < 0 :
-            raise ValueError, "vel must be > 0"            
+            raise ValueError, "vel must be >= 0"            
                   
         accel = int(accel)
-        if accel < 0:
+        if accel <= 0:
             raise ValueError, "accel must > 0"
     
         dt = float(dt)
         if dt <= 0:
-            raise ValueError, "dt must be >= 0"
+            raise ValueError, "dt must be > 0"
         
         if not dir in ('positive', 'negative'):
             try:
@@ -917,54 +916,92 @@ class Simple_Step:
         return
         
 
-    def soft_ramp_to_pos(self,pos,accel,pos_vel=None,N=100):
+    def soft_ramp_to_pos(self,pos,accel,pos_vel=None,dt=0.025):
         """
+        Performs a ramp (constant acceleration to constant velocity)
+        from the the current position to the specified position. 
 
-        !!!!!!! Note: Not completed yet !!!!!!!
+        ######################
+        Finish documentation
+        ######################
 
-        Move to given position using a ramp trajectory. The ramp is
-        generated in software on PC side by changing the pos_vel. Thus
-        the timing of the accelerations during the ramp may not be
-        perfect however it should help when driving inertial loads.
         
         """
+        # Cast and check input arguments
+        pos = int(pos)
+        accel = int(accel)
+        if accel <= 0:
+            raise ValueError, "accel must be > 0"
+        if pos_vel != None:
+            pos_vel = int(pos_vel)
+        else:
+            pos_vel = 0.5*self.max_vel
+        if pos_vel <=0:
+            raise ValueError, "pos_vel must be > 0"
+        dt = float(dt)
+        if dt <= 0:
+            raise ValueError, "dt must be > 0"
+
         # Stop device, set to positioning mode and set position set-point 
-        dev.set_status('stopped')
-        dev.set_mode('position')
-        dev.set_pos_setpt(pos)
-        
+        self.set_status('stopped')
+        self.set_mode('position')
+        self.set_pos_setpt(pos)
         
         # Compute acceleration time and distance
         time_accel = float(pos_vel)/float(accel) 
         dist_accel = 0.5*float(accel)*time_accel**2
-        dt = time_accel/float(N)
         
         # Getting start position
         pos_start = dev.get_pos()
-        dist_total = pos - pos_start
+        dist_total = abs(pos - pos_start)
+        if dist_total == 0:
+            return
 
         # Set intial velocity
-        dev.set_pos_vel(int(accel*dt))
-        dev.start()
-        
-        while abs(dev.get_pos_err()) != 0:
-            pos_cur = dev.get_pos()
-            dist_cur = pos - pos_start
-            
-            t = math.sqrt(2.0*float(pos - pos_start)/float(accel))
-            N = round(t/dt)
-            
-            vel = N*accel
-            
+        self.set_pos_vel(0)
+        self.start()        
 
-        # --------------------------------------------------------
-        # DEBUG - not finished yet
-        # --------------------------------------------------------
+        # Ramp to position
+        cnt = 0
+        while abs(self.get_pos_err()) != 0:
+            
+            # Get current position
+            pos_cur = self.get_pos()
+            cnt +=1
+            
+            # Compute distance from start and desired position
+            dist_from_start = abs(pos_cur - pos_start)
+            dist_from_final = abs(pos_cur - pos)
+            
+            # Compute next positioning velocity
+            if dist_total < 2.0*dist_accel:
+                if dist_from_start < 0.5*dist_total:
+                    t = math.sqrt(2.0*dist_from_start/float(accel))
+                    t = max([cnt*dt,t])
+                    v = abs(int(accel*t))
+                else:
+                    t = math.sqrt(2.0*dist_from_final/float(accel))
+                    v = abs(int(accel*t))
+            else:
+                
+                if dist_from_final < dist_accel:
+                    t = math.sqrt(2.0*dist_from_final/float(accel))
+                    v = abs(int(accel*t))
+                elif dist_from_start < dist_accel:
+                    t = math.sqrt(2.0*dist_from_start/float(accel))
+                    t = max(cnt*dt, t)
+                    v = abs(int(accel*t))
+                else:
+                    v = pos_vel    
         
-        
-        
+            # Set positioning velocity
+            self.set_pos_vel(v)
+            time.sleep(dt)
+            
+        # Ramp complete
+        self.stop()    
         return
-        
+            
     def print_values(self):
         """
         Prints the current device values 
@@ -1111,15 +1148,28 @@ if __name__=='__main__':
         dev.close()
 
 
-    if 1:
+    if 0:
         dev = Simple_Step()
 
         if dev.get_dir() == 'positive':
-            dev.soft_ramp_to_vel(12110,'negative', 50000)
+            dev.soft_ramp_to_vel(50000,'negative', 50000)
         else:
-            dev.soft_ramp_to_vel(15212, POSITIVE, 10000)
+            dev.soft_ramp_to_vel(35212, POSITIVE, 10000)
         dev.print_values()
         time.sleep(5.0)
 
         dev.soft_ramp_to_vel(0,dev.get_dir(),50000)
+        dev.close()
+
+    if 1:
+
+        IND_PER_REV = 6400
+        
+        dev = Simple_Step()
+        
+        if dev.get_pos() == 0:
+            dev.soft_ramp_to_pos(2.0*IND_PER_REV,50000)
+        else:
+            dev.soft_ramp_to_pos(0,50000)
+        dev.print_values()
         dev.close()
