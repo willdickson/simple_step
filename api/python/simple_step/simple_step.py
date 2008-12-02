@@ -773,9 +773,9 @@ class Simple_Step:
         """
         Move the motor by the specified ammount. The motor is stopped
         and placed in positioning mode before the move begins. After
-        the move is complete the move is stopped. The positioning
+        the move is complete the motor is stopped. The positioning
         velocity used for the move is specifed by the keyword argument
-        pos_vel. If the pos_vel is equal to None (defualt) the half
+        pos_vel. If the pos_vel is equal to None (defualt) then half
         the maximum allowed velocity is used for the move.
 
         Arguments:
@@ -798,6 +798,10 @@ class Simple_Step:
         """
         Sets the velocity and direction of the motor. The motor is placed in 
         velocity mode if necessary. 
+        
+        Arguments:
+          vel = the desired motor velocity (must be > 0)
+          dir = the 
         """
         mode_cur = dev.get_mode()
         if mode_cur != 'velocity':
