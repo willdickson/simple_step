@@ -1,13 +1,29 @@
-/*
-             MyUSB Library
-     Copyright (C) Dean Camera, 2008.
-              
-  dean [at] fourwalledcubicle [dot] com
-      www.fourwalledcubicle.com
+/* ------------------------------------------------------------------------
+  simple_step
+  Copyright (C) William Dickson, 2008.
+  
+  wbd [at] caltech [dot] edu
+  www.willdickson.com
 
- Released under the LGPL Licence, Version 3
-*/
+  Released under the LGPL Licence, Version 3
+  
+  This file is part of simple_step.
 
+  simple_step is free software: you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published
+  by the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+    
+  simple_step is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with simple_step.  If not, see
+  <http://www.gnu.org/licenses/>.
+
+----------------------------------------------------------------------------*/
 #include "descriptors.h"
 
 USB_Descriptor_Device_t DeviceDescriptor PROGMEM = {

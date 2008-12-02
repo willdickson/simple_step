@@ -1,9 +1,37 @@
 #!/usr/bin/env python
-#
-# simple_step.py 
-#
-# William Dickson 
-# --------------------------------------------------------------------------- 
+"""
+-----------------------------------------------------------------------
+simple_step
+Copyright (C) William Dickson, 2008.
+  
+wbd [at] caltech [dot] edu
+www.willdickson.com
+
+This file is part of simple_step.
+
+simple_step is free software: you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+    
+simple_step is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with simple_step.  If not, see
+<http://www.gnu.org/licenses/>.
+
+------------------------------------------------------------------------
+
+Purpose: Provides and API for the at90usb based stepper motor
+controller. 
+
+Author: William Dickson 
+
+------------------------------------------------------------------------
+"""
 import pylibusb as usb
 import ctypes
 import sys
@@ -14,9 +42,17 @@ import struct
 def swap_dict(in_dict):
     """
     Swap key and values in dictionary
+    
+    Arguments:
+      in_dict = input dictionary
+      
+    Return: dictionary w/ keys and values swapped.
     """
     return dict([(v,k) for k,v in in_dict.iteritems()])
 
+
+# Constants
+# ------------------------------------------------------------------
 DEBUG = False
 INT32_MAX = (2**32-1)/2
 
@@ -128,11 +164,17 @@ def debug_print(msg, comma=False):
 class Simple_Step:
 
     """
-    USB communications interface to the at90usb based stepper motor 
-    controller board.
+    USB interface to the at90usb based stepper motor controller board.
     """
 
     def __init__(self):
+        """
+        Open and initialize usb device.
+        
+        Arguments: None
+        
+        Return: None.
+        """
         usb.init()
         
         # Get usb busses
@@ -184,21 +226,34 @@ class Simple_Step:
     def close(self):
         """
         Close usb device.
+        
+        Arguments: None
+        
+        Return: None
         """
         ret = usb.close(self.libusb_handle)
+        return
 
     # -------------------------------------------------------------------------
     # Methods for low level USB communication 
         
     def __send_and_receive(self,in_timeout=1000,out_timeout=9999):
         """
-        Send bulkout and and receive bulkin as a response
-        Note, probably want to and a max count so this will 
-        timeout if al lof the reads fail.
+        Send bulkout and and receive bulkin as a response.
+        
+        Arguments: None
+        
+        Keywords: 
+          in_timeout  = bulkin timeout in ms
+          out_timeout = bilkin timeout in ms
+          
+        Return: the data returned by the usb device.
         """
         done = False
         while not done:
             val = self.__send_output(timeout=out_timeout)
+            if val < 0 :
+                raise IOError, "error sending usb output"
             data = self.__read_input(timeout=in_timeout)
             if data == None:
                 debug_print('usb SR: fail', comma=False) 
@@ -210,11 +265,31 @@ class Simple_Step:
         return data
 
     def __send_output(self,timeout=9999):
+        """
+        Send output data to the usb device.
+        
+        Arguments: None
+        
+        Keywords:
+          timeout = the timeout in ms
+          
+        Return: number of bytes written on success or < 0 on error.
+        """
         buf = self.output_buffer # shorthand
         val = usb.bulk_write(self.libusb_handle, USB_BULKOUT_EP_ADDRESS, buf, timeout)
         return val
 
     def __read_input(self, timeout=1000):
+        """
+        Read input data from the usb device.
+        
+        Arguments: None
+        
+        Keywords:
+          timeout = the timeout in ms
+          
+        Return: the raw data read from the usb device.
+        """
         buf = self.input_buffer
         try:
             val = usb.bulk_read(self.libusb_handle, USB_BULKIN_EP_ADDRESS, buf, timeout)
@@ -226,8 +301,15 @@ class Simple_Step:
 
     def __get_usb_header(self,data):
         """
-        Get header from usb data. Header consists of the command id and 
+        Get header from returned usb data. Header consists of the command id and 
         the control byte. 
+        
+        Arguments:
+          data = the returned usb data
+          
+        Return: (cmd_id, ctl_byte)
+                 cmd_id   = the usb header command id
+                 ctl_byte = the usb header control byte 
         """
         cmd_id = self.__bytes_to_int(data[0:1],'uint8')
         ctl_byte = self.__bytes_to_int(data[1:2],'uint8')
@@ -236,12 +318,27 @@ class Simple_Step:
     def __get_usb_value(self,ctl_byte,data):
         """
         Get the value sent from usb data.
+        
+        Arguments:
+          ctl_byte = the returned control byte
+          data     = the returned data buffer
+          
+        Return: the value return by the usb device.
         """
         return self.__bytes_to_int(data[2:], USB_CTL2TYPE_DICT[ctl_byte])
         
     def __int_to_bytes(self,val,int_type):
         """
-        Convert integer value to bytes based on type. 
+        Convert integer value to bytes based on type specifier.
+
+        Arguments:
+          val      = the integer value to convert
+          int_type = the integer type specifier
+                     'uint8'  = unsigned 8 bit integer
+                     'uint16' = unsigned 16 bit integer
+                     'int32'  = signed 32 bit integer
+                     
+        Return: the integer converted to bytes.
         """
         int_type = int_type.lower()
         if int_type == 'uint8':
@@ -261,6 +358,15 @@ class Simple_Step:
         """
         Convert sequence of  bytes to intN or uintN based on the type
         specifier.
+
+        Arguments:
+          bytes    = the bytes to convert
+          int_type = the integer type specifier
+                     'uint8'  = unsigned 8 bit integer
+                     'uint16' = unsigned 16 bit integer
+                     'int32'  = signed 32 bit integer
+        
+        Return: the integer value
         """
         int_type = int_type.lower()
         if int_type == 'uint8':
@@ -277,7 +383,7 @@ class Simple_Step:
             val += ord(bytes[2]) << 16
             val += ord(bytes[3]) << 24
             if val > INT32_MAX:
-                # Reverse twos complement fot negatives
+                # Reverse twos complement for negatives
                 val = val - 2**32
         else:
             raise ValueError, "unknown int_type %s"%(int_type,)
@@ -289,9 +395,14 @@ class Simple_Step:
         Generic usb set command. Sends set command w/ value to device
         and extracts the value returned
 
-        Example:
-        
-        pos_vel= dev.usb_set_cmd(USB_SET_POS_VEL, pos_vel)
+        Arguments:
+          cmd_id = the integer command id for the usb command
+          val    = the value to send to the usb device.
+          
+        Keywords:
+          io_update = True or False. Determines whether or not thr 
+                      change in value will have an immediate effect. 
+                      The default value is True.
 
         """
         # Get value type from CMD_ID and convert to CTL_VAL
@@ -322,10 +433,10 @@ class Simple_Step:
         Generic usb get command. Sends usb get command to device 
         w/ specified command id and extracts the value returned.
 
-        Example:
-        
-        pos = dev.usb_get_cmd(USB_CMD_GET_POS)
-
+        Arguments:
+          cmd_id = the integer command id for usb command
+          
+        Return: the value returned fromt the usb device.
         """
         # Send command and receive data
         self.output_buffer[0] = chr(cmd_id%0x100)
@@ -343,6 +454,10 @@ class Simple_Step:
         """
         Places the at90usb device in programming mode for upgrading the 
         firmware.
+
+        --------------------------------
+        Not tested
+        --------------------------------
         """
         self.output_buffer[0] = chr(USB_CMD_AVR_DFU_MODE%0x100)
         val = self.__send_output()
@@ -351,12 +466,24 @@ class Simple_Step:
     def reset_device(self):
         """
         Resets the at90usb device.
+
+        Arguments: None
+        
+        Return: None
+
+        --------------------------------
+        Not Done.
+        --------------------------------
         """
         pass
 
     def get_pos(self):
         """
         Returns the current motor position.
+        
+        Arguments: None
+
+        Return: motor position. (indices)
         """
         pos = self.usb_get_cmd(USB_CMD_GET_POS)
         return pos
@@ -370,7 +497,7 @@ class Simple_Step:
         Argument:
           pos_setpt = position set-point value (indices)
           
-        Return: position set-point
+        Return: position set-point. (indices)
         """
         try:
             pos_setpt = int(pos_setpt)
@@ -383,6 +510,10 @@ class Simple_Step:
     def get_pos_setpt(self):
         """
         Returns the current motor position set-point in indices.
+
+        Arguments: None
+        
+        Return: motor position set-point. (indices)
         """
         set_pt = self.usb_get_cmd(USB_CMD_GET_POS_SETPT)
         return set_pt
@@ -409,7 +540,7 @@ class Simple_Step:
                       implicitly True for all commands other then those
                       which exciplity have it as a keyword argument.
                       
-        Return: the actual motor velocity obtained indice/sec. 
+        Return: the actual motor velocity obtained indices/sec. 
         """
         try:
             vel_setpt = int(vel_setpt)
@@ -429,13 +560,21 @@ class Simple_Step:
         Returns the motors current velocity set-point in indices/sec. 
         Note, this is  always a positive number. The direction of rotation 
         is determined by the direction value.
+
+        Arguments: None
+
+        Return: the velocity set-point. (indices/sec)
         """
         vel_setpt = self.usb_get_cmd(USB_CMD_GET_VEL_SETPT)
         return vel_setpt
 
     def get_vel(self):
         """
-        Returns the motors current velocity in indices/second. 
+        Returns the motor's current velocity in indices/sec. 
+
+        Arguments: None
+
+        Return: current motor velocity. (indices/sec)
         """
         vel = self.usb_get_cmd(USB_CMD_GET_VEL)
         return vel
@@ -443,14 +582,14 @@ class Simple_Step:
     def set_dir_setpt(self,dir_setpt,io_update=True):
         """
         Sets the set-point motor rotation direction used when the device
-        is in velocity mode. The value can be set using the strings 
-        'positive'/'negative' or by using the the integer values 
+        is in velocity mode. The value can be set using the strings, 
+        'positive'/'negative', or by using the the integer values, 
         POSITIVE/NEGATIVE. 
 
         Argument: 
 
-          dir = the set-point motor rotation direction either strings 
-          ('positive'/'negative') or integers (POSITIVE or NEGATIVE)
+          dir = the set-point motor rotation direction either strings, 
+                'positive'/'negative',  or integers, POSITIVE or NEGATIVE.
 
 
         Keywords:
@@ -463,6 +602,8 @@ class Simple_Step:
                       which exciplity have it as a keyword argument.
           
         Return: the motor rotation direction set-point
+                'positive' or 'negative' if type(dir_setpt) == str
+                 POSITIVE  or  NEGATIVE  if type(dir_setpt) == int 
         """
         # If direction is string convert to integer direction value
         if type(dir_setpt) == str:
@@ -490,18 +631,19 @@ class Simple_Step:
         else:
             return dir_setpt_val
         
-    def get_dir_setpt(self,ret_type = 'str'):
+    def get_dir_setpt(self,ret_type='str'):
         """
         Returns the set-point motor rotation direction used in
-        velocity mode.  The return values can be strings ('positive',
-        'negative') or integer values (POSITIVE, NEGATIVE) depending
-        on the keyword argument ret_type. Note, the direction can only
-        be set when the device is in velocity mode.
+        velocity mode.  The return values can be strings, 'positive'/
+        'negative', or integer values, POSITIVE/NEGATIVE depending
+        on the keyword argument ret_type. 
         
         Keywords:
           ret_type = 'str' or 'int'
 
         Return: the set-point motor rotation direction.
+                'positive' or 'negative' if ret_type == 'str'
+                 POSITIVE  or  NEGATIVE  if ret_type == 'int'
         """
 
         dir_setpt_val = self.usb_get_cmd(USB_CMD_GET_DIR_SETPT)
@@ -518,11 +660,13 @@ class Simple_Step:
         position mode the motor will track the position set-point.
         
         Argument: 
-          mode = the operating mode. Can be set using the the strings 
-                 ('position'/'velocity') or the integers (POSITION_MODE, 
-                 VELOCITY_MODE)
+          mode = the operating mode. Can be set using the the strings, 
+                 'position'/'velocity', or the integers, POSITION_MODE/ 
+                 VELOCITY_MODE.
 
         Return: operating mode
+                'position' or 'velocity' if type(mode)==str
+                 POSITION  or  VELOCITY  if type(mode)==int
         """
         # If mode is string convert to integer value 
         if type(mode) == str:
@@ -557,6 +701,8 @@ class Simple_Step:
           ret_type = set the type of the return values either 'str' or 'int'
 
         Return: operating mode
+                'position' or 'velocity' if ret_type == 'str'
+                 POSITION  or  VELOCITY  if ret_type == 'int'
 
         """
         mode_val = self.usb_get_cmd(USB_CMD_GET_MODE)
@@ -574,7 +720,7 @@ class Simple_Step:
         Arguments:
           pos_vel = positioning velocity l(indices/sec), always >= 0
 
-        Return:  the current positioning velocity. 
+        Return: the current positioning velocity (indices/sec). 
         """
         try:
             pos_vel = int(pos_vel)
@@ -590,17 +736,23 @@ class Simple_Step:
     def get_pos_vel(self):
         """
         Returns the positioning velocity in indices/sec.
+        
+        Arguments: None
+        
+        Return: position velocity. (indices/sec)
         """
         pos_vel = self.usb_get_cmd(USB_CMD_GET_POS_VEL)
         return pos_vel
 
     def get_pos_err(self):
         """
-        Returns the position error in indices- the difference bewteen
-        the position set-point and the current position. When the
-        device is in position mode it will try to drive the position
-        error to zero.
+        Returns the position error in indices. The position error is
+        the difference bewteen the position set-point and the current
+        position. When the device is in position mode it will try to
+        drive the position error to zero.
         
+        Arguments: None
+
         Return: current position error (indices)
         """
         pos_err = self.usb_get_cmd(USB_CMD_GET_POS_ERR)
@@ -614,12 +766,7 @@ class Simple_Step:
         Argument:
           zero_pos = the desired zero position for the motor (indices)
 
-        Return: 0
-
-        Example: sets the current position of the motor to zero.
-        
-        cur_pos = dev.get_pos()
-        dev.set_pos_zero(cur_pos)
+        Return: 0 (indices)
         """
         try:
             zerp_pos = int(zero_pos)
@@ -634,6 +781,10 @@ class Simple_Step:
         """
         Returns the maximum allowed velocity in indices/sec to the
         nearest integer value.
+        
+        Arguments: None
+        
+        Return: The maximum allowed velocity. (indices/sec)
         """
         max_vel = self.usb_get_cmd(USB_CMD_GET_MAX_VEL)
         return max_vel
@@ -642,6 +793,10 @@ class Simple_Step:
         """
         Returns the minium allowed velocity in indices/sec to the
         nearest integer value.
+
+        Arguments: None
+        
+        Return: minimum allowed velocity. (indices/sec)
         """
         min_vel = self.usb_get_cmd(USB_CMD_GET_MIN_VEL)
         return min_vel
@@ -650,7 +805,7 @@ class Simple_Step:
         """
         Returns the device status. 
         
-        keywords:
+        Keywords:
           ret_type = sets the return type 'str' or 'int' 
 
         Return: 'running' or 'stopped' if ret_type = 'str'
@@ -667,10 +822,12 @@ class Simple_Step:
         Sets the device status. 
 
         Argument:
-          status = device status either 'running'/'stopped' or
-                   RUNNING/STOPPED.
+          status = the device status either a string, 'running'/'stopped',
+                   or an integer,RUNNING/STOPPED.
 
-        Return: device status
+        Return: the new device status. 
+                'running' or 'stopped' if type(status) == str
+                 RUNNING  or  STOPPED  if type(status) == int 
         """
         if type(status) == str:
             try:
@@ -695,28 +852,48 @@ class Simple_Step:
     def start(self):
         """
         Starts the device - sets system status to running.
+
+        Arguments: None
+        
+        Return: None
         """
         self.set_status('running')
-    
+        return
+
     def stop(self):
         """
         Stops the device - sets system status to stop.
+        
+        Arguments: None
+        
+        Return: None
         """
         self.set_status('stopped')
-
+        return
 
     def get_dir(self,ret_type='str'):
         """
-        Gets the current motor direction. Can return either a string value
-        ("positive"/"negative") or an integer value (POSITIVE/NEGATIVE) 
+        Gets the current motor direction. Can return either a string value,
+        "positive"/"negative", or an integer value, POSITIVE/NEGATIVE, 
         depending on the value of the keyword argument ret_type.
+        
+        Arguments: None
+
+        Keywords:
+          ret_type = determines the return type of the function. 
+                     If ret_type = 'str' the a string is returned. 
+                     If ret_tyep = 'int' an integer is returned.
+
+        Return: the current motor direction (string or integer)
         """
         dir_val = self.usb_get_cmd(USB_CMD_GET_DIR)
         if ret_type == 'str':
             return VAL2DIR_DICT[dir_val]
-        else:
+        elif ret_type == 'int':
             return dir_val
-        
+        else:
+            raise ValueError, "unknown ret_type %s"%(ret_type,)
+         
     def cmd_test(self):
         """
         Dummy usb command for debugging.
@@ -765,10 +942,9 @@ class Simple_Step:
 
         # Stop device
         self.stop()
-        return
+        return        
+        
 
-        
-        
     def move_by(self,pos,pos_vel=None):
         """
         Move the motor by the specified ammount. The motor is stopped
@@ -800,8 +976,11 @@ class Simple_Step:
         velocity mode if necessary. 
         
         Arguments:
-          vel = the desired motor velocity (must be > 0)
-          dir = the 
+          vel = the desired motor velocity, must be > 0.
+          dir = the desired motor direction 'positive'/'negative' or POSITIVE/
+                NEGATIVE.
+
+        Return: None
         """
         mode_cur = dev.get_mode()
         if mode_cur != 'velocity':
@@ -922,14 +1101,31 @@ class Simple_Step:
 
     def soft_ramp_to_pos(self,pos,accel,pos_vel=None,dt=0.025):
         """
-        Performs a ramp (constant acceleration to constant velocity)
-        from the the current position to the specified position. 
+        Performs a ramp from the the current position to the specified
+        position. The ramp consists of three phases: 1. constant
+        acceleration (specified by accel), 2. a constant velocity
+        (specified by pos_vel), and 3. constant decceleration
+        (specified by accel).  The constant velocity phase may or may
+        not occur depending on the acceleration and the distance of
+        the final position from the starting position. The constant
+        velocity The ramp is performed in software on the PC side (not
+        in the firmware) by setting the motor velocity based on the
+        distance from the starting and final positions. For this
+        reason the time course of the the ramp may not be exact. The
+        main purpose of the ramp is to enable the position of inertial
+        loads. 
 
-        ######################
-        Finish documentation
-        ######################
+        Arguments:
+          pos     = the desired final position of the motor in indices.
+          accel   = the ramp acceleration in indices/sec**2
+          
+        Keywords: 
 
-        
+          pos_vel = the peak ramp velocity in indices/sec. If pos_vel=
+                    None (default) then the peak ramp velocity if set to  
+                    half the maximum allowed velocity.
+
+        Return: None        
         """
         # Cast and check input arguments
         pos = int(pos)
@@ -1008,7 +1204,11 @@ class Simple_Step:
             
     def print_values(self):
         """
-        Prints the current device values 
+        Prints the current device values.
+        
+        Arguments: None
+        
+        Return None.
         """
         print
         print ' system state'
@@ -1035,9 +1235,19 @@ class Simple_Step:
         
         
 def check_cmd_id(expected_id,received_id):
+    """
+    Compares expected and received command ids.
+    
+    Arguments:
+      expected_id = expected command id
+      received_is = received command id
+      
+    Return: None
+    """
     if not expected_id == received_id:
         msg = "received incorrect command ID %d expected %d"%(received_id,expected_id)
         raise IOError, msg
+    return
 
 # -------------------------------------------------------------------------
 if __name__=='__main__':
