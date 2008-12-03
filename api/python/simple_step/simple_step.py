@@ -947,7 +947,7 @@ class Simple_Step:
 
     def move_by(self,pos,pos_vel=None):
         """
-        Move the motor by the specified ammount. The motor is stopped
+        Move the motor by the specified ammount.  The motor is stopped
         and placed in positioning mode before the move begins. After
         the move is complete the motor is stopped. The positioning
         velocity used for the move is specifed by the keyword argument
@@ -982,7 +982,7 @@ class Simple_Step:
 
         Return: None
         """
-        mode_cur = dev.get_mode()
+        mode_cur = self.get_mode()
         if mode_cur != 'velocity':
             self.set_status('stopped')
             self.set_mode('velocity')
@@ -990,10 +990,10 @@ class Simple_Step:
             dir_cur = self.get_dir()
             if dir_cur != 'dir':
                 self.set_status('stopped')
-                dev.set_dir_setpt(dir)
+                self.set_dir_setpt(dir)
 
-        dev.set_vel_setpt(vel)
-        dev.start()
+        self.set_vel_setpt(vel)
+        self.start()
         return
 
 
@@ -1152,7 +1152,7 @@ class Simple_Step:
         dist_accel = 0.5*float(accel)*time_accel**2
         
         # Getting start position
-        pos_start = dev.get_pos()
+        pos_start = self.get_pos()
         dist_total = abs(pos - pos_start)
         if dist_total == 0:
             return
