@@ -8,7 +8,7 @@ from simple_step import Simple_Step
 pos_0 = 0
 pos_1 = 2*6400
 
-# Positioning velocity 
+# Positioning velocity  (Optional argument)
 pos_vel = 10000 
 
 # Open device 
