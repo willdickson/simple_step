@@ -1,0 +1,22 @@
+simple_step
+=============
+
+simple_step provides a python api control stepper motors via the
+at90usb based stepper motor controller. 
+
+Installation
+
+   * Installation instructions can be found in the INSTALL file.  
+
+Examples
+
+   * Examples demonstrating how to use sine_stimulus can be found in 
+     the examples directory. 
+     
+Author
+
+   * Will Dickson (wbd@caltech.edu)
+
+
+simple_step may be freely distributed and modified in accordance with
+the GNU Lesser General Public License.

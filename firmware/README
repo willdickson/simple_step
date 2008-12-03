@@ -1,0 +1,17 @@
+simple_step/firmware
+====================
+
+provides a firmware to control stepper motors via vis clock and
+direction commands using the Ateml at90usb1287 microcontroller.
+
+Installation
+
+   * Installation instructions can be found in the INSTALL file.  
+     
+Author
+
+   * Will Dickson (wbd@caltech.edu)
+
+
+simple_step may be freely distributed and modified in accordance with
+the GNU Lesser General Public License.

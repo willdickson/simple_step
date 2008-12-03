@@ -1,0 +1,18 @@
+Installation instructions for simple_step/firmware
+===================================================
+
+Requirements:
+  avr-gcc v 4.2.2
+  avr-libc v 1.4.7-1 
+  MyUSB v 1.4.1
+  dfu-programmer
+
+Building:
+  make clean
+  make 
+
+Programming:
+  sudo make program
+
+A sample udev rules file is given in the firmware/udev_rules directory. 
+  
