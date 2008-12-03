@@ -1,5 +1,9 @@
 """
-__init__.py
+simple_step
+Copyright (C) William Dickson, 2008.
+  
+wbd@caltech.edu
+www.willdickson.com
 
 This file is part of simple_step.
 
@@ -17,5 +21,4 @@ You should have received a copy of the GNU Lesser General Public
 License along with Foobar.  If not, see
 <http://www.gnu.org/licenses/>.
 """
-
 from simple_step import *

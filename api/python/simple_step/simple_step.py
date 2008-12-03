@@ -4,7 +4,7 @@
 simple_step
 Copyright (C) William Dickson, 2008.
   
-wbd [at] caltech [dot] edu
+wbd@caltech.edu
 www.willdickson.com
 
 This file is part of simple_step.

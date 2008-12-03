@@ -2,7 +2,7 @@
   simple_step
   Copyright (C) William Dickson, 2008.
   
-  wbd [at] caltech [dot] edu
+  wbd@caltech.edu
   www.willdickson.com
 
   Released under the LGPL Licence, Version 3

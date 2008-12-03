@@ -13,6 +13,7 @@
 # Sander Pool
 # Frederik Rouleau
 # Carlos Lamas
+# William Dickson
 #
 #----------------------------------------------------------------------------
 # On command line:
