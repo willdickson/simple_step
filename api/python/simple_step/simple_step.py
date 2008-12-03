@@ -1249,141 +1249,28 @@ def check_cmd_id(expected_id,received_id):
         raise IOError, msg
     return
 
-# -------------------------------------------------------------------------
-if __name__=='__main__':
 
-    # Some simple testing
-    if 0:
-        
-        dev = Simple_Step()
-        
-        dev.set_mode('velocity')
-        dev.set_dir_setpt('negative')
-        dev.set_vel_setpt(15300)
-        dev.start()
-        dev.print_values()    
-        dev.close()
+def print_LGPL():    
+    msg = """
+simple_step
+Copyright (C) William Dickson, 2008.
+  
+wbd@caltech.edu
+www.willdickson.com
 
-        
-    if 0:
-
-        IND_PER_REV = 6400
-
-        dev = Simple_Step()
-        
-        pos = dev.get_pos()
-        dev.set_zero_pos(pos)
-        dev.print_values()
-
-
-        time.sleep(1.0)
-
-        for i in range(0,16):
-            dev.move_by(IND_PER_REV/8)
-            dev.print_values()
-
-        time.sleep(1.0)
-            
-        for i in range(0,8):
-            dev.move_by(IND_PER_REV/4)
-            dev.print_values()
-        
-        time.sleep(1.0)
-
-            
-        for i in range(0,4):
-            dev.move_by(IND_PER_REV/2)
-            dev.print_values()
-
-        time.sleep(1.0)
-
-        for i in range(0,2):
-            dev.move_by(IND_PER_REV)
-            dev.print_values()
-            
-
-        dev.close()
+simple_step is free software: you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
     
-    if 0:
-        
-        pos_vel = 10000 
-        dev = Simple_Step()
+simple_step is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
 
-        # Set current position to zero position
-        pos = dev.get_pos()
-        dev.set_zero_pos(pos)
-        
-        
-        vel = 1000
-        dir = 'positive'
-        t = 5.0
-        print '%s move @ vel = %d for %1.2f sec'%(dir,vel,t,)
-        dev.set_vel_and_dir(vel,dir)
-        time.sleep(t)
-        print 'returning to zero'
-        dev.move_to_pos(0,pos_vel=pos_vel)
-        
-        vel = 5000
-        dir = 'positive'
-        t = 5.0
-        print '%s move @ vel = %d for %1.2f sec'%(dir,vel,t,)
-        dev.set_vel_and_dir(vel,dir)
-        time.sleep(t)
-        print 'returning to zero'
-        dev.move_to_pos(0,pos_vel=pos_vel)
+You should have received a copy of the GNU Lesser General Public
+License along with simple_step.  If not, see
+<http://www.gnu.org/licenses/>.
+"""
+    print msg
 
-        dev.print_values()
-        dev.stop()
-        
-    if 0:
-
-        dev = Simple_Step()
-
-        dev.set_mode('velocity')
-        dev.set_dir_setpt('positive')
-        dev.set_vel_setpt(0)
-        dev.start()
-
-        print 'increasing velocity'
-        for i in range(0,1000):
-            vel = i*50 + 50
-            dev.set_vel_setpt(vel)
-            time.sleep(0.01)
-
-        print 'decreasing velocity'
-        for i in range(500,0,-1):
-            vel = i*100 - 100
-            dev.set_vel_setpt(vel)
-            time.sleep(0.01)
-        
-            
-        dev.stop()
-        dev.print_values()
-        dev.close()
-
-
-    if 0:
-        dev = Simple_Step()
-
-        if dev.get_dir() == 'positive':
-            dev.soft_ramp_to_vel(50000,'negative', 50000)
-        else:
-            dev.soft_ramp_to_vel(35212, POSITIVE, 10000)
-        dev.print_values()
-        time.sleep(5.0)
-
-        dev.soft_ramp_to_vel(0,dev.get_dir(),50000)
-        dev.close()
-
-    if 1:
-
-        IND_PER_REV = 6400
-        
-        dev = Simple_Step()
-        
-        if dev.get_pos() == 0:
-            dev.soft_ramp_to_pos(2.0*IND_PER_REV,50000)
-        else:
-            dev.soft_ramp_to_pos(0,50000)
-        dev.print_values()
-        dev.close()

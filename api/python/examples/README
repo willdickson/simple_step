@@ -5,8 +5,8 @@ The examples currently focus on the high-level class methods of
 Simple_Step: move_by, move_to_pos, soft_ramp_to_pos, set_vel_and_dir,
 and soft_ramp_to_vel.
 
-In addition the low level class methods stop, and set_zero_pos are
-also used.
+In addition examples of the the low level class methods stop, and
+set_zero_pos are also given.
 
 For documentation on the low level class methods see the source code
 simple_step/simple_step.py.
