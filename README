@@ -1,6 +1,4 @@
-simple_step: provides a collection of software components for
-controlling stepper motors via USB. simple_step consists of three main
-software componets:
+simple_step: stepper motor control software consisting of:
 
 1. firmware for the Atmel at90usb1287 microcontroller providing
    position and velocity control for stepper motors via clock and
@@ -14,7 +12,6 @@ software componets:
 
 
 Installation instructions can be found in the INSTALL file.
-
 
 Author: William Dickson
 
