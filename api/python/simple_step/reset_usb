@@ -1,8 +1,11 @@
+# Resets linux's usb drivers fairly brutally by removing them and then
+# re-installing them. I use this to reset things after I screw
+# something up. 
+#
+# Will Dickson
+# ----------------------------------------------------------------------
+
 # Remove Drivers
-#modprobe --remove usbhid
-#modprobe --remove hid
-#modprobe --remove ehci_hcd
-#modprobe --remove uhci_hcd
 rmmod usbhid
 rmmod hid
 rmmod ehci_hcd
