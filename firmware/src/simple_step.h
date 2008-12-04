@@ -65,6 +65,8 @@
 #define USB_CMD_GET_STATUS      16
 #define USB_CMD_SET_STATUS      17
 #define USB_CMD_GET_DIR         18
+#define USB_CMD_SET_ENABLE      19
+#define USB_CMD_GET_ENABLE      20
 #define USB_CMD_AVR_RESET      200
 #define USB_CMD_AVR_DFU_MODE   201
 #define USB_CMD_TEST           251
@@ -123,13 +125,25 @@
 #define RUNNING 1
 #define STOPPED 0
 
+// States for enable
+#define ENABLED 1
+#define DISABLED 0
+
 // Velocity mode trigger DDR register and pins
 #define VEL_TRIG_DDR DDRC
 #define VEL_TRIG_DDR_PIN DDC0
 
-// Velocity mode trigger port and pins
+// Velocity mode trigger io port and pins
 #define VEL_TRIG_PORT PORTC
 #define VEL_TRIG_PIN PC0
+
+// Motor enable DDR register and pins
+#define ENABLE_DDR DDRC
+#define ENABLE_DDR_PIN DDC1
+
+// Motor enable io port and pins
+#define ENABLE_PORT PORTC
+#define ENABLE_PIN PC1  
 
 // Software reset 
 #define AVR_RESET() wdt_enable(WDTO_30MS); while(1) {}
@@ -176,6 +190,7 @@ typedef struct {
   Pos_Mode_t Pos_Mode;    // Position mode parameters
   Vel_Mode_t Vel_Mode;    // Velocity mode parameters
   uint8_t    Status;      // Motor status (RUNNING or STOPPED)
+  uint8_t    Enable;      // Motor enable pin 
 } Sys_State_t;
 
 /// Global variables
@@ -190,6 +205,7 @@ volatile Sys_State_t Sys_State = {
  Pos_Mode:  {Pos_SetPt: 0, Pos_Vel: DEFAULT_POS_VEL},
  Vel_Mode:  {Vel_SetPt: 0, Dir_SetPt: DIR_POS},
  Status:    STOPPED,
+ Enable:    ENABLED,
 };
 
 // Task Definitions: 
@@ -223,5 +239,6 @@ static void Vel_Mode_IO_Update(void);
 static void Pos_Mode_IO_Update(void);
 static void Vel_Trig_Hi(void);
 static void Vel_Trig_Lo(void);
+static void Set_Enable(uint8_t value);
 
 #endif // _SIMPLE_STEP_H_

@@ -1,0 +1,19 @@
+# Remove Drivers
+#modprobe --remove usbhid
+#modprobe --remove hid
+#modprobe --remove ehci_hcd
+#modprobe --remove uhci_hcd
+rmmod usbhid
+rmmod hid
+rmmod ehci_hcd
+rmmod uhci_hcd
+
+# Install Drivers
+modprobe uhci_hcd
+modprobe ehci_hcd
+modprobe hid
+modprobe usbhid
+
+
+
+

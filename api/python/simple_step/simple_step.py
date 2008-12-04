@@ -83,6 +83,8 @@ USB_CMD_GET_MIN_VEL = 15
 USB_CMD_GET_STATUS = 16
 USB_CMD_SET_STATUS = 17
 USB_CMD_GET_DIR = 18
+USB_CMD_SET_ENABLE = 19
+USB_CMD_GET_ENABLE = 20
 USB_CMD_AVR_RESET = 200
 USB_CMD_AVR_DFU_MODE = 201
 USB_CMD_TEST = 251
@@ -104,9 +106,20 @@ POSITION_MODE = 1
 POSITIVE = 0
 NEGATIVE = 1
 
-# Status C0nstants
+# Status Constants
 RUNNING = 1
 STOPPED = 0
+
+# Enable Constants
+ENABLED = 1
+DISABLED = 0
+
+# Mapping for enable strings to integer values
+ENABLE2VAL_DICT = {
+    'enabled'  : ENABLED,
+    'disabled' : DISABLED,
+}
+VAL2ENABLE_DICT = swap_dict(ENABLE2VAL_DICT)
 
 # Mapping from mode strings to integer values
 MODE2VAL_DICT = {
@@ -132,6 +145,7 @@ SET_TYPE_DICT = {
     USB_CMD_SET_ZERO_POS : 'int32',
     USB_CMD_SET_STATUS : 'uint8',
     USB_CMD_TEST: 'uint8',
+    USB_CMD_SET_ENABLE: 'uint8',
     }
 
 # Dictionary from type to USB_CTL values
@@ -144,8 +158,8 @@ USB_CTL2TYPE_DICT = swap_dict(TYPE2USB_CTL_DICT)
 
 # Dictionary of status integets to strings 
 STATUS2VAL_DICT = {
-    RUNNING : 'running',
-    STOPPED : 'stopped',
+    'running' : RUNNING,
+    'stopped' : STOPPED,
 }
 VAL2STATUS_DICT = swap_dict(STATUS2VAL_DICT)
 
@@ -209,7 +223,8 @@ class Simple_Step:
 
         if dev.descriptor.bNumConfigurations > 1:
             debug("WARNING: more than one configuration, choosing first")
-        
+
+            
         usb.set_configuration(self.libusb_handle, dev.config[0].bConfigurationValue)
         usb.claim_interface(self.libusb_handle, interface_nr)
         
@@ -453,11 +468,12 @@ class Simple_Step:
     def enter_dfu_mode(self):
         """
         Places the at90usb device in programming mode for upgrading the 
-        firmware.
+        firmware. Note, after enering dfu mode no further communications
+        with the device will be possible.
 
-        --------------------------------
-        Not tested
-        --------------------------------
+        Arguments: None
+        
+        Return: None
         """
         self.output_buffer[0] = chr(USB_CMD_AVR_DFU_MODE%0x100)
         val = self.__send_output()
@@ -465,17 +481,25 @@ class Simple_Step:
 
     def reset_device(self):
         """
-        Resets the at90usb device.
+        Resets the at90usb device. Note, currently this function has
+        some problems. First, after resetting the device no further
+        usb communications with the device are possible. Second, after
+        reset the device occasionally fails to enumerate correctly and
+        the only way I have found which fixes this is to reset the linux
+        usb system. It is probably best not to use this function. 
 
         Arguments: None
         
         Return: None
-
-        --------------------------------
-        Not Done.
-        --------------------------------
         """
-        pass
+        ###############################
+        # DEBUG - has issues, see above
+        ###############################
+
+        self.output_buffer[0] = chr(USB_CMD_AVR_RESET%0x100)
+        val = self.__send_output()        
+        self.close()
+        return
 
     def get_pos(self):
         """
@@ -813,7 +837,7 @@ class Simple_Step:
         """
         status_val = self.usb_get_cmd(USB_CMD_GET_STATUS)
         if ret_type == 'str':
-            return STATUS2VAL_DICT[status_val]
+            return VAL2STATUS_DICT[status_val]
         else:
             return status_val
 
@@ -831,7 +855,7 @@ class Simple_Step:
         """
         if type(status) == str:
             try:
-                status_val = VAL2STATUS_DICT[status.lower()]
+                status_val = STATUS2VAL_DICT[status.lower()]
             except:
                 raise ValueError, "unknown status string %s"%(status,)
         else:
@@ -845,7 +869,7 @@ class Simple_Step:
         # Send usb command
         status_val = self.usb_set_cmd(USB_CMD_SET_STATUS,status_val)
         if type(status) == str:
-            return STATUS2VAL_DICT[status_val]
+            return VAL2STATUS_DICT[status_val]
         else:
             return status_val
 
@@ -893,7 +917,83 @@ class Simple_Step:
             return dir_val
         else:
             raise ValueError, "unknown ret_type %s"%(ret_type,)
-         
+
+
+    def set_enable(self,enable):
+        """
+        Enables the stepper motor drive by setting the enable pin to high
+        (enabled) or low (disabled).
+
+        Arguments:
+          enable_val =  enable string or integer value
+                        either 'enable' or 'disable' if string
+                        either  ENABLE  or  DISABLE  if integer
+                 
+        Return: the new enable status
+                'enable' or 'disable' if type(val) == str
+                 ENABLE  or  DISABLE  if type(val) == int
+                
+        """
+        if type(enable) == str:
+            try:
+                enable_val = ENABLE2VAL_DICT[enable.lower()]
+            except:
+                raise ValueError, "unknown enable string %s"%(enable,)
+        else:
+            try:
+                enable_val = int(enable)
+            except:
+                raise ValueError, "unable to convert enable to integer"
+            if not (enable_val in (ENABLED,DISABLED)):
+                raise ValueError, "unknown enable integer %d"%(enable_val,)
+        
+        # Send usb command
+        enable_val = self.usb_set_cmd(USB_CMD_SET_ENABLE,enable_val)
+        if type(enable) == str:
+            return VAL2ENABLE_DICT[enable_val]
+        else:
+            return enable_val
+
+    def get_enable(self,ret_type='str'):
+        """
+        Returns drive enable motor enable status.
+
+        Arguments: None
+        
+        Return: the motor enable status.
+                'enable' or 'disable' if ret_type == 'str'
+                 ENABLE  or  DISABLE  if ret_type == 'int'
+                
+        """
+        enable_val = self.usb_get_cmd(USB_CMD_GET_ENABLE)
+        if ret_type == 'str':
+            return VAL2ENABLE_DICT[enable_val]
+        elif ret_type == 'int':
+            return enable_val
+        else:
+            raise ValueError, "unknown ret_type %s"%(ret_type,)
+
+
+    def enable(self):
+        """
+        Enables stepper motor drive.
+        
+        Arguments: None
+        
+        Return: None
+        """
+        self.set_enable('enabled')
+        
+    def disable(self):
+        """
+        Disables stepper motor drive.
+        
+        Arguments: None
+        
+        Return: None
+        """
+        self.set_enable('disabled')
+        
     def cmd_test(self):
         """
         Dummy usb command for debugging.
@@ -1215,6 +1315,7 @@ class Simple_Step:
         print ' '+ '-'*35
         print '   operating mode:', self.get_mode()
         print '   status:', self.get_status()
+        print '   drive:', self.get_enable()
         print '   position:', self.get_pos()
         print '   velocity:', self.get_vel()
         print '   direction:', self.get_dir()
@@ -1274,3 +1375,11 @@ License along with simple_step.  If not, see
 """
     print msg
 
+
+# ------------------------------------------------------------------
+
+
+
+
+    
+    

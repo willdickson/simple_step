@@ -20,10 +20,14 @@ dev = Simple_Step()
 # Get current position
 pos = dev.get_pos()
 
+print 'current pos:', pos, 
+
 # Perform move based on current position 
 if pos == 0:
+    print ', moving to pos: ', pos_1
     dev.soft_ramp_to_pos(pos_1,accel,pos_vel=pos_vel)
 else:
+    print ', moving to pos: ', pos_0
     dev.soft_ramp_to_pos(pos_0,accel,pos_vel=pos_vel)
 
 # Print information

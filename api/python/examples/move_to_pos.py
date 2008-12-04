@@ -17,10 +17,14 @@ dev = Simple_Step()
 # Get current position
 pos = dev.get_pos()
 
+print 'current pos:', pos, 
+
 # Perform move based on current position 
 if pos == 0:
+    print ', moving to pos: ', pos_1
     dev.move_to_pos(pos_1,pos_vel=pos_vel)
 else:
+    print ', moving to pos: ', pos_0
     dev.move_to_pos(pos_0,pos_vel=pos_vel)
 
 # Print information

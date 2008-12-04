@@ -88,14 +88,21 @@ int main(void)
 
 static void IO_Init(void)
 {
-  // Set data direction of trigger pins to output
-  VEL_TRIG_DDR |= (1 << VEL_TRIG_DDR_PIN);
 
   // Set all PINS on clock and direction port low
   CLK_DIR_PORT = 0x0; 
 
   // Turn off Clock and Direction Pins
   Clk_Dir_Off();
+
+  // Set data direction of trigger pins to output
+  VEL_TRIG_DDR |= (1 << VEL_TRIG_DDR_PIN);
+
+  // Set data direction of enable pin to output
+  ENABLE_DDR |= (1 << ENABLE_DDR_PIN);
+
+  // Set Enable pin to defualt
+  Set_Enable(Sys_State.Enable);
 
   // Set Clock high time 
   TIMER_OCR = TIMER_TOP_MAX/2; 
@@ -318,7 +325,18 @@ TASK(USB_Process_Packet)
 	USB_In.Header.Control_Byte = USB_CTL_UINT8;
 	USB_In.Data.uint8_t = Sys_State.Dir;
 	break;
-	
+
+      case USB_CMD_SET_ENABLE:
+	Set_Enable(USB_Out.Data.uint8_t);
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	USB_In.Data.uint8_t = Sys_State.Enable;
+	break;
+
+      case USB_CMD_GET_ENABLE:
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	USB_In.Data.uint8_t = Sys_State.Enable;
+	break;
+
       case USB_CMD_AVR_RESET:    
 	USB_Packet_Write();
 	AVR_RESET();
@@ -366,6 +384,25 @@ TASK(USB_Process_Packet)
       // Indicate ready 
       LEDs_SetAllLEDs(LEDS_LED2 | LEDS_LED4);
     }
+  }
+  return;
+}
+
+// -------------------------------------------------------------
+// Function: Set_Enable
+//
+// Purpose: Set the motor enable pin
+//
+// -------------------------------------------------------------
+static void Set_Enable(uint8_t value)
+{
+  if (value == ENABLED) {
+    ENABLE_PORT |= (1 << ENABLE_PIN);
+    Sys_State.Enable = ENABLED;
+  }
+  if (value == DISABLED) {
+    ENABLE_PORT &= ~(1 << ENABLE_PIN);
+    Sys_State.Enable = DISABLED;
   }
   return;
 }
