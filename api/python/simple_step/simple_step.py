@@ -6,6 +6,8 @@ Copyright (C) William Dickson, 2008.
 wbd@caltech.edu
 www.willdickson.com
 
+Released under the LGPL Licence, Version 3
+
 This file is part of simple_step.
 
 simple_step is free software: you can redistribute it and/or modify it

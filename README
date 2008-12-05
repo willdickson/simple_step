@@ -1,4 +1,4 @@
-simple_step: stepper motor control software consisting of:
+simple_step: stepper motor control software consisting of
 
 1. firmware for the Atmel at90usb1287 microcontroller providing
    position and velocity control for stepper motors via clock and
