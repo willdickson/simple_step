@@ -22,3 +22,4 @@ License along with Foobar.  If not, see
 <http://www.gnu.org/licenses/>.
 """
 from simple_step import *
+from cmd_line import cmd_line_main

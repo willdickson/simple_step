@@ -33,6 +33,6 @@ setup(name='simple_step',
       author = 'William Dickson',
       author_email = 'wbd@caltech.edi',
       packages=find_packages(),
-      #entry_points = {'console_scripts': ['sine-stim = sine_stimulus:sine_stim_main',]}
+      entry_points = {'console_scripts': ['simple-step = simple_step:cmd_line_main',]}
       )
       

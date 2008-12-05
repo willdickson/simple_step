@@ -14,5 +14,11 @@ Building:
 Programming:
   sudo make program
 
-A sample udev rules file is given in the firmware/udev_rules directory. 
+USB stepup:
+  A sample udev rules file is given in the firmware/udev_rules directory. 
+  cp udev_rules/99-simple_step.rules to /etc/udev/rules.d
+  add group simple-step
+  add users who wish to use simple_step to simple-step group   
+  
+
   
