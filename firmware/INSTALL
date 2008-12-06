@@ -8,6 +8,9 @@ Requirements:
   dfu-programmer
 
 Building:
+  Set the variable MYUSB_SRC_DIR in the Makefile so that it points to the 
+  location of the MyUSB source directory. 
+
   make clean
   make 
 
