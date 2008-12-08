@@ -742,7 +742,7 @@ static void Vel_Mode_IO_Update(void)
 
   // Set velocity to set-point velocity
   if ((Sys_State.Status==RUNNING) && 
-      (Sys_State.Vel_Mode.Vel_SetPt > Get_Min_Vel())) {       
+      (Sys_State.Vel_Mode.Vel_SetPt >= Get_Min_Vel())) {       
     Sys_State.Vel = Sys_State.Vel_Mode.Vel_SetPt;
     Clk_Dir_On();
     Vel_Trig_Hi();
