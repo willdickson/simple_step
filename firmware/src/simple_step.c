@@ -604,6 +604,7 @@ static uint16_t Get_Min_Vel(void)
 {
   double Vel;
   Vel = ((double)F_CPU)/(((double)TIMER_PRESCALER)*(1.0+(double)TIMER_TOP_MAX));
+  Vel = ceil(Vel);
   return (uint16_t) Vel;
 
 }

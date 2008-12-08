@@ -469,7 +469,7 @@ class Simple_Step:
     def enter_dfu_mode(self):
         """
         Places the at90usb device in programming mode for upgrading the 
-        firmware. Note, after enering dfu mode no further communications
+        firmware. Note, after entering dfu mode no further communications
         with the device will be possible.
 
         Arguments: None
@@ -680,7 +680,7 @@ class Simple_Step:
     def set_mode(self,mode):
         """
         Sets the at90usb device operating mode. There are two possible
-        operating modes: velocity and posistion. In velocity mode the
+        operating modes: velocity and position. In velocity mode the
         motor will spin and the set velocity in the set direction. In
         position mode the motor will track the position set-point.
         

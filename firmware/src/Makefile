@@ -41,7 +41,7 @@
 #----------------------------------------------------------------------------
 
 # Location of MyUSB library source code (absolute path)
-MYUSB_SRC_DIR = /usr/local/src/avr/MyUSB_1.4.1/MyUSB
+MYUSB_SRC_DIR = /home/peter/src/MyUSB_1.4.1/MyUSB
 
 # Location of symolic link to MyUSB library source (relative path) 
 # This link is created if doesn't exist
