@@ -620,12 +620,13 @@ static uint16_t Get_Top(uint16_t Vel)
 // ---------------------------------------------------------------
 static void Clk_Dir_On(void)
 {
-  uint8_t sreg;
-  sreg = SREG;
-  cli();
-  CLK_DIR_DDR |= (1<<CLK_DDR_PIN);
-  CLK_DIR_DDR |= (1<<DIR_DDR_PIN);
-  SREG = sreg;
+  // Enable clock and direction if not enabled 
+  if (~( CLK_DIR_DDR & (1<<CLK_DDR_PIN))) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+      CLK_DIR_DDR |= (1<<CLK_DDR_PIN);
+      CLK_DIR_DDR |= (1<<DIR_DDR_PIN);
+    }
+  }
   return;
 }
 
@@ -637,12 +638,13 @@ static void Clk_Dir_On(void)
 // ---------------------------------------------------------------
 static void Clk_Dir_Off(void)
 {
-  uint8_t sreg;
-  sreg = SREG;
-  cli();
-  CLK_DIR_DDR &= ~(1<<CLK_DDR_PIN);
-  CLK_DIR_DDR &= ~(1<<DIR_DDR_PIN);
-  SREG = sreg;
+  // Disable clock and direction if enabled 
+  if ( CLK_DIR_DDR & (1<<CLK_DDR_PIN)) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+      CLK_DIR_DDR &= ~(1<<CLK_DDR_PIN);
+      CLK_DIR_DDR &= ~(1<<DIR_DDR_PIN);
+    }
+  }
   return;
 }
 
