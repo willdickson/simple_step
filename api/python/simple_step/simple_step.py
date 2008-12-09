@@ -1098,7 +1098,7 @@ class Simple_Step:
         return
 
 
-    def soft_ramp_to_vel(self,vel,dir,accel,dt=0.025):
+    def soft_ramp_to_vel(self,vel,dir,accel,dt=0.1):
         """
         Performs a ramp (constant acceleration) from the current
         velocity to the specified velocity. The ramp is performed in
@@ -1200,7 +1200,7 @@ class Simple_Step:
         return
         
 
-    def soft_ramp_to_pos(self,pos,accel,pos_vel=None,dt=0.025):
+    def soft_ramp_to_pos(self,pos,accel,pos_vel=None,dt=0.1):
         """
         Performs a ramp from the the current position to the specified
         position. The ramp consists of three phases: 1. constant
