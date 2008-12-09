@@ -38,6 +38,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
+#include <avr/atomic.h>
 #include "descriptors.h"
 #include <MyUSB/Version.h>	        // Library Version Information
 #include <MyUSB/Common/ButtLoadTag.h>	// PROGMEM tags readable by the ButtLoad project
@@ -234,11 +235,12 @@ static uint16_t Get_Min_Vel(void);
 static uint16_t Get_Top(uint16_t Vel);
 static void Clk_Dir_On(void);
 static void Clk_Dir_Off(void);
-static void IO_Update(void);
+static void IO_Update(uint16_t Vel, uint8_t Dir);
 static void Vel_Mode_IO_Update(void);
 static void Pos_Mode_IO_Update(void);
 static void Vel_Trig_Hi(void);
 static void Vel_Trig_Lo(void);
 static void Set_Enable(uint8_t value);
+static int32_t Get_Pos(void);
 
 #endif // _SIMPLE_STEP_H_

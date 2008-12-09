@@ -226,7 +226,7 @@ TASK(USB_Process_Packet)
 
       case USB_CMD_GET_POS:
 	USB_In.Header.Control_Byte = USB_CTL_INT32;
-	USB_In.Data.int32_t = Sys_State.Pos;
+	USB_In.Data.int32_t = Get_Pos();
 	break;
 
       case USB_CMD_SET_POS_SETPT:
@@ -440,7 +440,9 @@ static void Vel_Trig_Lo(void)
 static void Set_Status(uint8_t Status)
 {
   if ((Status == RUNNING) || (Status == STOPPED)) {
-    Sys_State.Status = Status;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+      Sys_State.Status = Status;
+    }
   }
   return;
 }
@@ -455,7 +457,9 @@ static void Set_Status(uint8_t Status)
 // ------------------------------------------------------------
 static void Set_Pos_SetPt(int32_t Pos)
 {
-  Sys_State.Pos_Mode.Pos_SetPt = Pos;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    Sys_State.Pos_Mode.Pos_SetPt = Pos;
+  }
   return;
 }
 
@@ -530,7 +534,27 @@ static void Set_Mode(uint8_t Mode)
 // --------------------------------------------------------------
 static int32_t Get_Pos_Err(void)
 {
-  return Sys_State.Pos_Mode.Pos_SetPt - Sys_State.Pos;
+  int32_t Pos;
+  int32_t Pos_SetPt;
+  
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    Pos = Sys_State.Pos;
+  }
+  return Sys_State.Pos_Mode.Pos_SetPt - Pos;
+}
+// --------------------------------------------------------------
+// Function: Get Pos
+//
+// Purpose: Gets position in an atomic manner
+//
+// --------------------------------------------------------------
+static int32_t Get_Pos(void) 
+{
+  int32_t Pos;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    Pos = Sys_State.Pos;
+  }
+  return Pos;
 }
 
 // --------------------------------------------------------------
@@ -629,31 +653,35 @@ static void Clk_Dir_Off(void)
 // compare register, and the timer top. 
 //
 // -----------------------------------------------------------------
-static void IO_Update(void)
+static void IO_Update(uint16_t Vel, uint8_t Dir)
 {
-  uint8_t sreg;
   uint16_t timer_top;
 
-  // Set direction line
-  if (Sys_State.Dir == DIR_NEG) {
-    CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
-  }
-  else {
-    CLK_DIR_PORT &= ~(1 << DIR_PORT_PIN);
-  }
-
   // Compute top
-  timer_top = Get_Top(Sys_State.Vel);
+  timer_top = Get_Top(Vel);
   timer_top = timer_top > TIMER_TOP_MIN ? timer_top : TIMER_TOP_MIN;
   timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
 
-  // Update clock frequency and pulse width 
-  sreg = SREG;
-  cli();
-  TIMER_TOP = timer_top;
-  TIMER_OCR = timer_top/2;
-  SREG = sreg;
+  
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
 
+    // Update direction
+    if (Dir == DIR_NEG) {
+      CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
+    }
+    else {
+      CLK_DIR_PORT &= ~(1 << DIR_PORT_PIN);
+    }
+    
+    // Update Sys_State
+    Sys_State.Dir = Dir;
+    Sys_State.Vel = Vel;
+    
+    // Update clock frequency and pulse width 
+    TIMER_TOP = timer_top;
+    TIMER_OCR = timer_top/2;
+  }
+  
   return;
 }
 
@@ -669,30 +697,33 @@ static void IO_Update(void)
 static void Pos_Mode_IO_Update(void)
 {
   int32_t Pos_Err;
-
+  uint8_t Dir;
+  uint16_t Vel;
+  
   // Set direction based on position error
   Pos_Err = Get_Pos_Err();
+    Pos_Err = Get_Pos_Err();
   if (Pos_Err > 0) {
-    Sys_State.Dir = DIR_POS;
+    Dir = DIR_POS;
   }
   else {
-    Sys_State.Dir = DIR_NEG;
+    Dir = DIR_NEG;
   }
 
   // If we are not at the set point set velocity, turn on clock and 
   // direction commands, and set status to RUNNING.
-  if ((Pos_Err != 0) && 
-      (Sys_State.Status==RUNNING) && 
+  if ((Pos_Err != 0) && (Sys_State.Status==RUNNING) && 
       (Sys_State.Pos_Mode.Pos_Vel >= Get_Min_Vel())) {
+
     Clk_Dir_On();
-    Sys_State.Vel = Sys_State.Pos_Mode.Pos_Vel;
+    Vel = Sys_State.Pos_Mode.Pos_Vel;
   }
   else {
-    Sys_State.Vel = 0;
+    Vel = 0;
     Clk_Dir_Off();
   }
 
-  IO_Update();
+  IO_Update(Vel,Dir);
   return;
 }
 
@@ -706,21 +737,25 @@ static void Pos_Mode_IO_Update(void)
 // -------------------------------------------------------------------- 
 static void Vel_Mode_IO_Update(void)
 {
-  Sys_State.Dir = Sys_State.Vel_Mode.Dir_SetPt;
+  uint8_t Dir;
+  uint16_t Vel;
+
+  Dir = Sys_State.Vel_Mode.Dir_SetPt;
 
   // Set velocity to set-point velocity
   if ((Sys_State.Status==RUNNING) && 
       (Sys_State.Vel_Mode.Vel_SetPt >= Get_Min_Vel())) {       
-    Sys_State.Vel = Sys_State.Vel_Mode.Vel_SetPt;
+    Vel = Sys_State.Vel_Mode.Vel_SetPt;
     Clk_Dir_On();
     Vel_Trig_Hi();
   }
   else {
-    Sys_State.Vel = 0;
+    Vel = 0;
     Clk_Dir_Off();
     Vel_Trig_Lo();
   }
-  IO_Update();
+
+  IO_Update(Vel,Dir);
   return;
 }
 
