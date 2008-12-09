@@ -439,13 +439,8 @@ static void Vel_Trig_Lo(void)
 // -------------------------------------------------------------
 static void Set_Status(uint8_t Status)
 {
-  uint8_t sreg;
-
   if ((Status == RUNNING) || (Status == STOPPED)) {
-    sreg = SREG;
-    cli();
     Sys_State.Status = Status;
-    SREG = sreg;
   }
   return;
 }
@@ -460,11 +455,7 @@ static void Set_Status(uint8_t Status)
 // ------------------------------------------------------------
 static void Set_Pos_SetPt(int32_t Pos)
 {
-  uint8_t sreg;
-  sreg = SREG;
-  cli();
   Sys_State.Pos_Mode.Pos_SetPt = Pos;
-  SREG = sreg;
   return;
 }
 
@@ -476,16 +467,10 @@ static void Set_Pos_SetPt(int32_t Pos)
 // -------------------------------------------------------------
 static void Set_Vel_SetPt(uint16_t Vel)
 {
-  uint16_t Max_Vel;
-  uint8_t sreg;
-
-  Max_Vel = Get_Max_Vel();
+  uint16_t Max_Vel = Get_Max_Vel();
+  
   // We are in velocity mode - change Sys_State velocity
-  sreg = SREG;
-  cli();
   Sys_State.Vel_Mode.Vel_SetPt = Vel < Max_Vel ? Vel : Max_Vel;
-  SREG = sreg;
-
   return;
 }
 
@@ -500,14 +485,9 @@ static void Set_Vel_SetPt(uint16_t Vel)
 // --------------------------------------------------------------
 static void Set_Dir_SetPt(uint8_t Dir)
 {
-  uint8_t sreg;  
-  
-  sreg = SREG;
-  cli();
   if ((Dir == DIR_POS) || (Dir == DIR_NEG)) {
     Sys_State.Vel_Mode.Dir_SetPt = Dir;
   }
-  SREG = sreg;
   return;
 }
 
@@ -520,16 +500,10 @@ static void Set_Dir_SetPt(uint8_t Dir)
 // -------------------------------------------------------------
 static void Set_Pos_Vel(uint16_t Pos_Vel)
 {
-  uint8_t sreg;
-  sreg = SREG;
-  cli();
-  if (Pos_Vel <= Get_Max_Vel()) {
-    Sys_State.Pos_Mode.Pos_Vel = Pos_Vel;
-  }
-  else {
-    Sys_State.Pos_Mode.Pos_Vel = Get_Max_Vel();
-  }
-  SREG = sreg;
+  uint16_t Vel;
+  
+  Vel = Pos_Vel <= Get_Max_Vel() ? Pos_Vel : Get_Max_Vel();
+  Sys_State.Pos_Mode.Pos_Vel = Vel;
   return;
 }
 
@@ -542,14 +516,9 @@ static void Set_Pos_Vel(uint16_t Pos_Vel)
 // -------------------------------------------------------------
 static void Set_Mode(uint8_t Mode)
 {
-  uint8_t sreg;
-  
-  sreg = SREG;
-  cli();
   if ((Mode == VEL_MODE) || (Mode == POS_MODE)) {
     Sys_State.Mode = Mode;
   }
-  SREG = sreg;
   return;
 }
 
@@ -572,12 +541,8 @@ static int32_t Get_Pos_Err(void)
 // --------------------------------------------------------------
 static void Set_Zero_Pos(int32_t Pos)
 {
-  uint8_t sreg;
-  sreg = SREG;
-  cli();
   Sys_State.Pos_Mode.Pos_SetPt -= Pos;
   Sys_State.Pos -= Pos;
-  SREG = sreg;
   return;
 }
 
@@ -669,9 +634,6 @@ static void IO_Update(void)
   uint8_t sreg;
   uint16_t timer_top;
 
-  sreg = SREG;
-  cli();
-
   // Set direction line
   if (Sys_State.Dir == DIR_NEG) {
     CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
@@ -686,8 +648,10 @@ static void IO_Update(void)
   timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
 
   // Update clock frequency and pulse width 
-  TIMER_OCR = timer_top/2;
+  sreg = SREG;
+  cli();
   TIMER_TOP = timer_top;
+  TIMER_OCR = timer_top/2;
   SREG = sreg;
 
   return;
@@ -717,7 +681,9 @@ static void Pos_Mode_IO_Update(void)
 
   // If we are not at the set point set velocity, turn on clock and 
   // direction commands, and set status to RUNNING.
-  if ((Pos_Err != 0) && (Sys_State.Status==RUNNING)) {
+  if ((Pos_Err != 0) && 
+      (Sys_State.Status==RUNNING) && 
+      (Sys_State.Pos_Mode.Pos_Vel >= Get_Min_Vel())) {
     Clk_Dir_On();
     Sys_State.Vel = Sys_State.Pos_Mode.Pos_Vel;
   }
@@ -725,6 +691,7 @@ static void Pos_Mode_IO_Update(void)
     Sys_State.Vel = 0;
     Clk_Dir_Off();
   }
+
   IO_Update();
   return;
 }

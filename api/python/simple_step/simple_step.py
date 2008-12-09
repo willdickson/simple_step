@@ -1296,7 +1296,7 @@ class Simple_Step:
                     v = pos_vel    
         
             # Set positioning velocity
-            self.set_pos_vel(v)
+            self.set_pos_vel(max([v,self.min_vel]))
             time.sleep(dt)
             
         # Ramp complete
