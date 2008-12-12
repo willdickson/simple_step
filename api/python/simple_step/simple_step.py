@@ -86,6 +86,8 @@ USB_CMD_SET_STATUS = 17
 USB_CMD_GET_DIR = 18
 USB_CMD_SET_ENABLE = 19
 USB_CMD_GET_ENABLE = 20
+USB_CMD_SET_DIO_HI=21
+USB_CMD_SET_DIO_LO=22
 USB_CMD_AVR_RESET = 200
 USB_CMD_AVR_DFU_MODE = 201
 USB_CMD_TEST = 251
@@ -147,6 +149,8 @@ SET_TYPE_DICT = {
     USB_CMD_SET_STATUS : 'uint8',
     USB_CMD_TEST: 'uint8',
     USB_CMD_SET_ENABLE: 'uint8',
+    USB_CMD_SET_DIO_HI : 'uint8',
+    USB_CMD_SET_DIO_LO : 'uint8',
     }
 
 # Dictionary from type to USB_CTL values
@@ -994,6 +998,33 @@ class Simple_Step:
         Return: None
         """
         self.set_enable('disabled')
+
+
+    def set_dio_hi(self,pin):
+        """
+        Sets DIO pin to logic high.
+
+        Arguments:
+         pin = DIO pin number (0-7)
+         
+        Return: None 
+        """
+        if pin < 0 or pin > 7:
+            raise ValueError, "pin # out of range"
+        val = self.usb_set_cmd(USB_CMD_SET_DIO_HI,pin)
+
+    def set_dio_lo(self,pin):
+        """
+        Sets DIO pin to logic low.
+
+        Arguments:
+         pin = DIO pin number (0-7)
+         
+        Return: None 
+        """
+        if pin < 0 or pin > 7:
+            raise ValueError, "pin # out of range"
+        val = self.usb_set_cmd(USB_CMD_SET_DIO_LO,pin)
         
     def cmd_test(self):
         """
@@ -1378,6 +1409,7 @@ License along with simple_step.  If not, see
 
 
 # ------------------------------------------------------------------
+
 
 
 

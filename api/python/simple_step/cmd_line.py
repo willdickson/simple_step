@@ -53,6 +53,8 @@ class Simple_Step_Cmd_Line:
         # Table of command strings to command methods
         self.cmd_table = {
             'dfu-mode'    : self.dfu_mode,
+            'dio-hi'      : self.dio_hi,
+            'dio-lo'      : self.dio_lo,
             'print-vals'  : self.print_vals,
             'start'       : self.start,
             'stop'        : self.stop,
@@ -70,6 +72,8 @@ class Simple_Step_Cmd_Line:
         # Table of command strings to help strings
         self.help_table = {
             'dfu-mode'    : Simple_Step_Cmd_Line.dfu_mode_help_str,
+            'dio-hi'      : Simple_Step_Cmd_Line.dio_hi_help_str,
+            'dio-lo'      : Simple_Step_Cmd_Line.dio_lo_help_str,
             'print-vals'  : Simple_Step_Cmd_Line.print_vals_help_str,
             'start'       : Simple_Step_Cmd_Line.start_help_str,
             'stop'        : Simple_Step_Cmd_Line.stop_help_str,
@@ -134,7 +138,45 @@ class Simple_Step_Cmd_Line:
         Place device in programming mode
         """
         self.dev.enter_dfu_mode()
+
+    def dio_hi(self):
+        """
+        Set DIO pin to logic high
+        """
+        if len(self.args) < 2:
+            print "ERROR: command 'dio-hi' requires pin # argument"
+            sys.exit(1)
+        try:
+            pin = int(self.args[1])
+        except Exception, err:
+            print "ERROR: unable to convert pin to integer, ", err
+            sys.exit(1)
+        try:
+            self.dev.set_dio_lo(pin)
+        except Exception, err:
+            print "ERROR: setting dio, ", err
+            sys.exit(1)
+
+        self.dev.set_dio_hi(pin)
     
+    def dio_lo(self):
+        """
+        Set DIO pin to logic low
+        """
+        if len(self.args) < 2:
+            print "ERROR: command 'dio-hi' requires pin # argument"
+            sys.exit(1)
+        try:
+            pin = int(self.args[1])
+        except Exception, err:
+            print "ERROR: unable to convert pin to integer, ", err
+            sys.exit(1)
+        try:
+            self.dev.set_dio_lo(pin)
+        except Exception, err:
+            print "ERROR: setting dio, ", err
+            sys.exit(1)
+        
     def print_vals(self):
         """
         Print current device values
@@ -397,6 +439,8 @@ class Simple_Step_Cmd_Line:
 Command Summary:
  
  dfu-mode       - place the at90usb device in programming mode
+ dio-hi         - set DIO pin to logic high
+ dio-lo         - set DIO pin to logic low
  disable        - disbale the stepper drive
  enable         - enable the stepper drive
  help           - get help 
@@ -427,6 +471,23 @@ is restarted.
 Example:
  simple-step dfu-mode
 """
+
+    dio_hi_help_str = """\
+command: dio-hi
+
+usage: simple-step dio-hi pin
+
+Set DIO pin to logic high. DIO pin must be in range 0-7.
+"""
+
+    dio_lo_help_str = """\
+command: dio-lo
+
+usage: simple-step dio-lo pin
+
+Set DIO pin to logic low. DIO pin must be in range 0-7.
+"""
+
     print_vals_help_str = """\
 command: print-vals
 

@@ -68,6 +68,8 @@
 #define USB_CMD_GET_DIR         18
 #define USB_CMD_SET_ENABLE      19
 #define USB_CMD_GET_ENABLE      20
+#define USB_CMD_SET_DIO_HI      21
+#define USB_CMD_SET_DIO_LO      22
 #define USB_CMD_AVR_RESET      200
 #define USB_CMD_AVR_DFU_MODE   201
 #define USB_CMD_TEST           251
@@ -146,6 +148,14 @@
 #define ENABLE_PORT PORTC
 #define ENABLE_PIN PC1  
 
+// DIO DDR register
+#define DIO_DDR DDRD
+#define DIO_DDR_PINS {DDD0,DDD1,DDD2,DDD3,DDD4,DDD5,DDD6,DDD7}  
+
+// DIO PORT
+#define DIO_PORT PORTD
+#define DIO_PORT_PINS {PD0,PD1,PD2,PD3,PD4,PD5,PD6,PD7}
+
 // Software reset 
 #define AVR_RESET() wdt_enable(WDTO_30MS); while(1) {}
 #define AVR_IS_WDT_RESET()  ((MCUSR&(1<<WDRF)) ? 1:0)
@@ -197,6 +207,7 @@ typedef struct {
 /// Global variables
 USB_InOut_t USB_Out; 
 USB_InOut_t USB_In; 
+const uint8_t dio_port_pins[] = DIO_PORT_PINS;
 
 volatile Sys_State_t Sys_State = {
  Mode:      VEL_MODE, 
@@ -242,5 +253,7 @@ static void Vel_Trig_Hi(void);
 static void Vel_Trig_Lo(void);
 static void Set_Enable(uint8_t value);
 static int32_t Get_Pos(void);
+static void Set_DIO_Hi(uint8_t pin);
+static void Set_DIO_Lo(uint8_t pin);
 
 #endif // _SIMPLE_STEP_H_

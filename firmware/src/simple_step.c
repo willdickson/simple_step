@@ -88,6 +88,9 @@ int main(void)
 
 static void IO_Init(void)
 {
+  // Initial DIO PORT
+  DIO_DDR = 0xff; // set all pins to output
+  DIO_PORT = 0x00; // set all pins low
 
   // Set all PINS on clock and direction port low
   CLK_DIR_PORT = 0x0; 
@@ -337,6 +340,16 @@ TASK(USB_Process_Packet)
 	USB_In.Data.uint8_t = Sys_State.Enable;
 	break;
 
+      case USB_CMD_SET_DIO_LO:
+	Set_DIO_Lo(USB_Out.Data.uint8_t);
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	break;
+
+      case USB_CMD_SET_DIO_HI:
+	Set_DIO_Hi(USB_Out.Data.uint8_t);
+	USB_In.Header.Control_Byte = USB_CTL_UINT8;
+	break;
+
       case USB_CMD_AVR_RESET:    
 	USB_Packet_Write();
 	AVR_RESET();
@@ -384,6 +397,33 @@ TASK(USB_Process_Packet)
       // Indicate ready 
       LEDs_SetAllLEDs(LEDS_LED2 | LEDS_LED4);
     }
+  }
+  return;
+}
+
+
+// ------------------------------------------------------------
+// Function: Set_DIO_Hi
+//
+//
+// ------------------------------------------------------------
+static void Set_DIO_Hi(uint8_t pin)
+{
+  if (pin < 7) {
+    DIO_PORT |= (1 << dio_port_pins[pin]);
+  }
+  return;
+}
+
+//-------------------------------------------------------------
+// Function: Set_DIO_Lo
+//
+//
+// ------------------------------------------------------------
+static void Set_DIO_Lo(uint8_t pin)
+{
+  if (pin < 7) {
+    DIO_PORT &= ~(1 << dio_port_pins[pin]);
   }
   return;
 }
