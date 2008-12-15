@@ -409,7 +409,7 @@ TASK(USB_Process_Packet)
 // ------------------------------------------------------------
 static void Set_DIO_Hi(uint8_t pin)
 {
-  if (pin < 7) {
+  if (pin < 8) {
     DIO_PORT |= (1 << dio_port_pins[pin]);
   }
   return;
@@ -422,7 +422,7 @@ static void Set_DIO_Hi(uint8_t pin)
 // ------------------------------------------------------------
 static void Set_DIO_Lo(uint8_t pin)
 {
-  if (pin < 7) {
+  if (pin < 8) {
     DIO_PORT &= ~(1 << dio_port_pins[pin]);
   }
   return;
