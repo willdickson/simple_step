@@ -38,7 +38,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
-#include <avr/atomic.h>
+#include <util/atomic.h>
 #include "descriptors.h"
 #include <MyUSB/Version.h>	        // Library Version Information
 #include <MyUSB/Common/ButtLoadTag.h>	// PROGMEM tags readable by the ButtLoad project
