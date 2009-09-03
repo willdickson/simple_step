@@ -1,34 +1,34 @@
 /* ------------------------------------------------------------------------
-  simple_step
-  Copyright (C) William Dickson, 2008.
-  
-  wbd@caltech.edu
-  www.willdickson.com
+simple_step
+Copyright (C) William Dickson, 2008.
 
-  Released under the LGPL Licence, Version 3
-  
-  This file is part of simple_step.
+wbd@caltech.edu
+www.willdickson.com
 
-  simple_step is free software: you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published
-  by the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-    
-  simple_step is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+Released under the LGPL Licence, Version 3
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with simple_step.  If not, see
-  <http://www.gnu.org/licenses/>.
-  
+This file is part of simple_step.
+
+simple_step is free software: you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+simple_step is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with simple_step.  If not, see
+<http://www.gnu.org/licenses/>.
+
 ----------------------------------------------------------------------------
 
-  Purpose: firmware for simple stepper motor controller w/ USB
-  interface based on the at90usb1287 microcontroller.
-  
-  Author: Will Dickson
+Purpose: firmware for simple stepper motor controller w/ USB
+interface based on the at90usb1287 microcontroller.
+
+Author: Will Dickson
 
 ----------------------------------------------------------------------------*/
 #ifndef _SIMPLE_STEP_H_
@@ -40,11 +40,11 @@
 #include <avr/wdt.h>
 #include <util/atomic.h>
 #include "descriptors.h"
-#include <MyUSB/Version.h>	        // Library Version Information
-#include <MyUSB/Common/ButtLoadTag.h>	// PROGMEM tags readable by the ButtLoad project
-#include <MyUSB/Drivers/USB/USB.h>	// USB Functionality
-#include <MyUSB/Drivers/Board/LEDs.h>	// LEDs driver
-#include <MyUSB/Scheduler/Scheduler.h>	// Simple scheduler for task management
+#include <MyUSB/Version.h>          // Library Version Information
+#include <MyUSB/Common/ButtLoadTag.h>   // PROGMEM tags readable by the ButtLoad project
+#include <MyUSB/Drivers/USB/USB.h>  // USB Functionality
+#include <MyUSB/Drivers/Board/LEDs.h>   // LEDs driver
+#include <MyUSB/Scheduler/Scheduler.h>  // Simple scheduler for task management
 
 // USB Command IDs 
 #define USB_CMD_GET_POS          0
@@ -70,6 +70,8 @@
 #define USB_CMD_GET_ENABLE      20
 #define USB_CMD_SET_DIO_HI      21
 #define USB_CMD_SET_DIO_LO      22
+#define USB_CMD_GET_EXT_INT     23
+#define USB_CMD_SET_EXT_INT     24
 #define USB_CMD_AVR_RESET      200
 #define USB_CMD_AVR_DFU_MODE   201
 #define USB_CMD_TEST           251
@@ -149,12 +151,38 @@
 #define ENABLE_PIN PC1  
 
 // DIO DDR register
-#define DIO_DDR DDRD
-#define DIO_DDR_PINS {DDD0,DDD1,DDD2,DDD3,DDD4,DDD5,DDD6,DDD7}  
+#define DIO_DDR DDRA
+#define DIO_DDR_PINS {DDA0,DDA1,DDA2,DDA3,DDA4,DDA5,DDA6,DDA7}  
 
 // DIO PORT
-#define DIO_PORT PORTD
-#define DIO_PORT_PINS {PD0,PD1,PD2,PD3,PD4,PD5,PD6,PD7}
+#define DIO_PORT PORTA
+#define DIO_PORT_PINS {PA0,PA1,PA2,PA3,PA4,PA5,PA6,PA7}
+
+////////////////////////////////////////////////////////////////// 
+// DEBUG --
+// Changed DIO port because of conflict with external interrupts. 
+// This means other users - meaning peter and marie will have
+// to wire up the DIO to another port when upgrading the firmware.
+//////////////////////////////////////////////////////////////////
+
+// External interrupt polarities
+#define EXT_INT_HI2LO 0
+#define EXT_INT_LO2HI 1
+
+// External interrupt
+#define EXT_INT INT0
+
+// External interrupt DIO DDR register, and DDR pin
+#define EXT_INT_DDR DDRD 
+#define EXT_INT_DDR_PIN DDD0
+
+// External interupt port, pin and interrupt vector
+#define EXT_INT_PORT PORTD
+#define EXT_INT_PIN PD0
+#define EXT_INT_VECT INT0_vect
+
+// External interupt polarity (EXT_INT_HI2LO or EXT_INT_LO2HI)
+#define EXT_INT_POLARITY EXT_INT_HI2LO 
 
 // Software reset 
 #define AVR_RESET() wdt_enable(WDTO_30MS); while(1) {}
@@ -163,45 +191,46 @@
 
 // USB packet header information
 typedef struct {
-  uint8_t Command_ID;
-  uint8_t Control_Byte;
+    uint8_t Command_ID;
+    uint8_t Control_Byte;
 } Header_t;
-  
+
 // USB packet data
 typedef union {
-  uint8_t  uint8_t;
-  uint16_t uint16_t;
-  int32_t  int32_t;
+    uint8_t  uint8_t;
+    uint16_t uint16_t;
+    int32_t  int32_t;
 } Data_t;
 
 // USB packet structure
 typedef struct {
-  Header_t Header;
-  Data_t   Data;
+    Header_t Header;
+    Data_t   Data;
 } USB_InOut_t; 
 
 // Position mode parameter structure
 typedef struct {
-  int32_t   Pos_SetPt;   // Set-point motor position 
-  uint16_t  Pos_Vel;     // Positioning velocity     
+    int32_t   Pos_SetPt;   // Set-point motor position 
+    uint16_t  Pos_Vel;     // Positioning velocity     
 } Pos_Mode_t;
 
 // Velocity mode parameter structure
 typedef struct {
-  uint16_t  Vel_SetPt;   // Set-point velocity       
-  uint8_t   Dir_SetPt;   // Set-point direction   
+    uint16_t  Vel_SetPt;   // Set-point velocity       
+    uint8_t   Dir_SetPt;   // Set-point direction   
 } Vel_Mode_t;
 
 // Sytem state structure
 typedef struct {
-  uint8_t    Mode;        // Operating mode
-  uint8_t    Dir;         // Motor Direction
-  uint16_t   Vel;         // Actual motor velocity
-  int32_t    Pos;         // Actual motor position
-  Pos_Mode_t Pos_Mode;    // Position mode parameters
-  Vel_Mode_t Vel_Mode;    // Velocity mode parameters
-  uint8_t    Status;      // Motor status (RUNNING or STOPPED)
-  uint8_t    Enable;      // Motor enable pin 
+    uint8_t    Mode;        // Operating mode
+    uint8_t    Dir;         // Motor Direction
+    uint16_t   Vel;         // Actual motor velocity
+    int32_t    Pos;         // Actual motor position
+    Pos_Mode_t Pos_Mode;    // Position mode parameters
+    Vel_Mode_t Vel_Mode;    // Velocity mode parameters
+    uint8_t    Status;      // Motor status (RUNNING or STOPPED)
+    uint8_t    Enable;      // Motor enable pin 
+    uint8_t    Ext_Int;     // External interrupts (ENABLED or DISABLED)
 } Sys_State_t;
 
 /// Global variables
@@ -210,14 +239,15 @@ USB_InOut_t USB_In;
 const uint8_t dio_port_pins[] = DIO_PORT_PINS;
 
 volatile Sys_State_t Sys_State = {
- Mode:      VEL_MODE, 
- Dir:       DIR_POS,
- Vel:       0,
- Pos:       0,
- Pos_Mode:  {Pos_SetPt: 0, Pos_Vel: DEFAULT_POS_VEL},
- Vel_Mode:  {Vel_SetPt: 0, Dir_SetPt: DIR_POS},
- Status:    STOPPED,
- Enable:    ENABLED,
+    Mode:      VEL_MODE, 
+    Dir:       DIR_POS,
+    Vel:       0,
+    Pos:       0,
+    Pos_Mode:  {Pos_SetPt: 0, Pos_Vel: DEFAULT_POS_VEL},
+    Vel_Mode:  {Vel_SetPt: 0, Dir_SetPt: DIR_POS},
+    Status:    STOPPED,
+    Enable:    ENABLED,
+    Ext_Int:   DISABLED,
 };
 
 // Task Definitions: 
@@ -255,5 +285,6 @@ static void Set_Enable(uint8_t value);
 static int32_t Get_Pos(void);
 static void Set_DIO_Hi(uint8_t pin);
 static void Set_DIO_Lo(uint8_t pin);
+static void Set_Ext_Int(uint8_t val);
 
 #endif // _SIMPLE_STEP_H_
