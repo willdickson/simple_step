@@ -76,6 +76,9 @@ Author: Will Dickson
 #define USB_CMD_AVR_DFU_MODE   201
 #define USB_CMD_TEST           251
 
+#define TRUE  1
+#define FALSE 0
+
 // Usb ctl values for bulk in packets - used to determine data type
 #define USB_CTL_UINT8  0
 #define USB_CTL_UINT16 1
@@ -288,5 +291,6 @@ static int32_t Get_Pos(void);
 static void Set_DIO_Hi(uint8_t pin);
 static void Set_DIO_Lo(uint8_t pin);
 static void Set_Ext_Int(uint8_t val);
+static uint8_t Ext_Int_Active(void);
 
 #endif // _SIMPLE_STEP_H_

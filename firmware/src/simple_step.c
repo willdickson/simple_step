@@ -448,26 +448,47 @@ TASK(USB_Process_Packet)
 // ------------------------------------------------------------
 // Function: Set_Ext_Int
 //
+// Purpose: Reads value of external interrupt pin and returns
+// TRUE or FALSE base whether the value indicates that the
+// interrupt is still active.
+//
+// ------------------------------------------------------------
+static uint8_t Ext_Int_Active(void)
+{
+    uint8_t ext_int_val;
+    uint8_t rtn_val = FALSE;
+    ext_int_val =   EXT_INT_INP_REG & (1<<EXT_INT_INP_PIN); 
+    if ((EXT_INT_POLARITY==EXT_INT_HI2LO) && (ext_int_val==0)) {
+        rtn_val = TRUE;
+    } 
+    else if ((EXT_INT_POLARITY==EXT_INT_LO2HI) && (ext_int_val==1)) {
+        rtn_val = TRUE;
+    }
+    else {
+        rtn_val = FALSE;
+    }
+    return rtn_val;
+}
+
+// ------------------------------------------------------------
+// Function: Set_Ext_Int
+//
+// Purpose: Enables external interrupts. Only allowed if the 
+// external interrupt pin is no longer active. What active
+// means depends on the external interrrupt polarity.
 //
 // ------------------------------------------------------------
 static void Set_Ext_Int(uint8_t val)
 {
-    uint8_t ext_int_val;
-
     if (val == ENABLED) {
-        // Read value of external interrupt pin
-        ext_int_val =   EXT_INT_INP_REG & (1<<EXT_INT_INP_PIN); 
-        if ((EXT_INT_POLARITY==EXT_INT_HI2LO) && (ext_int_val==0)) {
-            // Don't enable interrupt as pin is still low
-            return;
-        } 
-        if ((EXT_INT_POLARITY==EXT_INT_LO2HI) && (ext_int_val==1)) {
-            // Dont't enable interrupt as pin is still high
+        if (Ext_Int_Active()==TRUE) {
             return;
         }
-        // Enable external interrupts
-        Sys_State.Ext_Int = ENABLED;
-        EIMSK |= (1<<EXT_INT);
+        else {
+            // Enable external interrupts
+            Sys_State.Ext_Int = ENABLED;
+            EIMSK |= (1<<EXT_INT);
+        }
     }
     if (val == DISABLED) {
         // Disable external interrupts
@@ -557,24 +578,19 @@ static void Set_Status(uint8_t Status)
 {
     uint8_t ext_int_val;
 
-    if ((Status == RUNNING) || (Status == STOPPED)) {
-        if ((Status==RUNNING) && (Sys_State.Status==ENABLED)) {
-            // Read value of external interrupt pin
-            ext_int_val =   EXT_INT_INP_REG & (1<<EXT_INT_INP_PIN); 
-            if ((EXT_INT_POLARITY==EXT_INT_HI2LO) && (ext_int_val==0)) {
-                // Don't enable interrupt as pin is still low
-                return;
-            } 
-            if ((EXT_INT_POLARITY==EXT_INT_LO2HI) && (ext_int_val==1)) {
-                // Dont't enable interrupt as pin is still high
-                return;
-            }
-        }
+    if (~((Status == RUNNING) || (Status == STOPPED))) {
+        return;
+    }
+    else if ((Status==RUNNING) && (Sys_State.Status==ENABLED) && 
+            (Ext_Int_Active()==TRUE)) {
+        return;
+    }
+    else {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             Sys_State.Status = Status;
         }
+        return;
     }
-    return;
 }
 
 // ------------------------------------------------------------
