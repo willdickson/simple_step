@@ -177,8 +177,10 @@ Author: Will Dickson
 #define EXT_INT_DDR_PIN DDD0
 
 // External interupt port, pin and interrupt vector
-#define EXT_INT_PORT PORTD
-#define EXT_INT_PIN PD0
+#define EXT_INT_OUT_REG PORTD
+#define EXT_INT_OUT_PIN PD0
+#define EXT_INT_INP_REG PIND
+#define EXT_INT_INP_PIN PIND0
 #define EXT_INT_VECT INT0_vect
 
 // External interupt polarity (EXT_INT_HI2LO or EXT_INT_LO2HI)

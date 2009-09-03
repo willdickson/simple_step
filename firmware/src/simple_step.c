@@ -156,7 +156,7 @@ static void IO_Init(void)
     EXT_INT_DDR &= ~(1<<EXT_INT_DDR_PIN);
 
     // Switch off pullup resistors on external interrupt pin
-    EXT_INT_PORT &= ~(1<<EXT_INT_PIN);
+    EXT_INT_OUT_REG &= ~(1<<EXT_INT_OUT_PIN);
 
     // Disable external interrupts pin before changing sense control
     EIMSK = 0x0;
@@ -452,11 +452,28 @@ TASK(USB_Process_Packet)
 // ------------------------------------------------------------
 static void Set_Ext_Int(uint8_t val)
 {
-    // If val == DISABLED then just disable
-    
-    // If val == ENABLED check that interupt pin has the correct
-    // sign based on the polarity and if so enable. 
+    uint8_t ext_int_val;
 
+    if (val == ENABLED) {
+        // Read value of external interrupt pin
+        ext_int_val =   EXT_INT_INP_REG & (1<<EXT_INT_INP_PIN); 
+        if ((EXT_INT_POLARITY==EXT_INT_HI2LO) && (ext_int_val==0)) {
+            // Don't enable interrupt as pin is still low
+            return;
+        } 
+        if ((EXT_INT_POLARITY==EXT_INT_LO2HI) && (ext_int_val==1)) {
+            // Dont't enable interrupt as pin is still high
+            return;
+        }
+        // Enable external interrupts
+        Sys_State.Ext_Int = ENABLED;
+        EIMSK |= (1<<EXT_INT);
+    }
+    if (val == DISABLED) {
+        // Disable external interrupts
+        Sys_State.Ext_Int = DISABLED;
+        EIMSK &= ~(1<<EXT_INT);
+    }
     return;
 }
     
@@ -538,7 +555,21 @@ static void Vel_Trig_Lo(void)
 // -------------------------------------------------------------
 static void Set_Status(uint8_t Status)
 {
+    uint8_t ext_int_val;
+
     if ((Status == RUNNING) || (Status == STOPPED)) {
+        if ((Status==RUNNING) && (Sys_State.Status==ENABLED)) {
+            // Read value of external interrupt pin
+            ext_int_val =   EXT_INT_INP_REG & (1<<EXT_INT_INP_PIN); 
+            if ((EXT_INT_POLARITY==EXT_INT_HI2LO) && (ext_int_val==0)) {
+                // Don't enable interrupt as pin is still low
+                return;
+            } 
+            if ((EXT_INT_POLARITY==EXT_INT_LO2HI) && (ext_int_val==1)) {
+                // Dont't enable interrupt as pin is still high
+                return;
+            }
+        }
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             Sys_State.Status = Status;
         }
@@ -634,8 +665,6 @@ static void Set_Mode(uint8_t Mode)
 static int32_t Get_Pos_Err(void)
 {
     int32_t Pos;
-    int32_t Pos_SetPt;
-
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         Pos = Sys_State.Pos;
     }
@@ -984,6 +1013,16 @@ ISR(TIMER3_OVF_vect) {
 //
 // -----------------------------------------------------------------
 ISR(EXT_INT_VECT) {
-
+    if (Sys_State.Ext_Int==ENABLED) {
+        Sys_State.Status = STOPPED;
+        if (Sys_State.Mode == POS_MODE) {
+            Sys_State.Pos_Mode.Pos_SetPt = Sys_State.Pos;
+            Pos_Mode_IO_Update();
+        }
+        if (Sys_State.Mode == VEL_MODE) {
+            Sys_State.Vel_Mode.Vel_SetPt = 0;
+            Vel_Mode_IO_Update();
+        }
+    }
     return;
 }
