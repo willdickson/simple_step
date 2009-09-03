@@ -392,6 +392,7 @@ TASK(USB_Process_Packet)
                 case USB_CMD_SET_EXT_INT:
                     Set_Ext_Int(USB_Out.Data.uint8_t);
                     USB_In.Header.Control_Byte = USB_CTL_UINT8;
+                    USB_In.Data.uint8_t = Sys_State.Ext_Int;
                     break;
 
                 case USB_CMD_AVR_RESET:    
@@ -576,20 +577,17 @@ static void Vel_Trig_Lo(void)
 // -------------------------------------------------------------
 static void Set_Status(uint8_t Status)
 {
-    uint8_t ext_int_val;
-
-    if (~((Status == RUNNING) || (Status == STOPPED))) {
-        return;
-    }
-    else if ((Status==RUNNING) && (Sys_State.Status==ENABLED) && 
-            (Ext_Int_Active()==TRUE)) {
-        return;
-    }
-    else {
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            Sys_State.Status = Status;
+    if ((Status == RUNNING) || (Status == STOPPED)) {
+        if ((Status==RUNNING) && (Sys_State.Status==ENABLED) && 
+                (Ext_Int_Active()==TRUE)) {
+            return;
         }
-        return;
+        else {
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+                Sys_State.Status = Status;
+            }
+            return;
+        }
     }
 }
 

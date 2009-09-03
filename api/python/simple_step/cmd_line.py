@@ -67,6 +67,8 @@ class Simple_Step_Cmd_Line:
             'ramp-to-vel' : self.ramp_to_vel,
             'zero'        : self.zero,
             'help'        : self.help,
+            'set-ext-int' : self.set_ext_int,
+            'get-ext-int' : self.get_ext_int,
             }
 
         # Table of command strings to help strings
@@ -86,6 +88,8 @@ class Simple_Step_Cmd_Line:
             'ramp-to-vel' : Simple_Step_Cmd_Line.ramp_to_vel_help_str,
             'zero'        : Simple_Step_Cmd_Line.zero_help_str,
             'help'        : Simple_Step_Cmd_Line.help_help_str,
+            'set-ext-int' : Simple_Step_Cmd_Line.set_ext_int_help_str,
+            'get-ext-int' : Simple_Step_Cmd_Line.get_ext_int_help_str,
             }
 
         # Set up option parser
@@ -138,6 +142,32 @@ class Simple_Step_Cmd_Line:
         Place device in programming mode
         """
         self.dev.enter_dfu_mode()
+
+    def set_ext_int(self):
+        """
+        Enable/Disable external interupts
+        """
+        if len(self.args) < 2:
+            print "ERROR: command 'set-ext-int' requires an argument"
+            sys.exit(1)
+        val = self.args[1]
+        if not val.lower() in ('enabled','disabled'):
+            try:
+                val = int(val)
+            except Exception, err:
+                print "ERROR: unable to convert exteral interrupt value to integer,", err
+                sys.exit(1)
+        try:
+            self.dev.set_ext_int(val)
+        except Exception, err:
+            print "ERROR: setting external interrupt, ", err
+            sys.exit(1)
+
+    def get_ext_int(self):
+        """
+        Return current external interrupt setting.
+        """
+        print self.dev.get_ext_int()
 
     def dio_hi(self):
         """
@@ -453,6 +483,8 @@ Command Summary:
  start          - start controller
  stop           - stop controller
  zero           - set the zero position of the motor
+ set-ext-int    - enable/disable external interrupt
+ get-ext-int    - get current external interrupt setting
 
 
 * To get help for a specific command type: %prog help cmd.
@@ -470,6 +502,23 @@ is restarted.
 
 Example:
  simple-step dfu-mode
+"""
+
+    set_ext_int_help_str = """\
+command: set-ext-int
+
+usage: simple-step set-ext-int value
+
+Enables or disables external interrupts. Where value should be strings 
+enable or disable strings  or integers 1 or 0.
+"""
+
+    get_ext_int_help_str = """\
+command: get-ext-int
+
+usage: simple-set get-ext-int
+
+Returns the current external interrupt setting (enabled or disabled)
 """
 
     dio_hi_help_str = """\

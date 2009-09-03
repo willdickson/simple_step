@@ -88,6 +88,8 @@ USB_CMD_SET_ENABLE = 19
 USB_CMD_GET_ENABLE = 20
 USB_CMD_SET_DIO_HI=21
 USB_CMD_SET_DIO_LO=22
+USB_CMD_GET_EXT_INT=23
+USB_CMD_SET_EXT_INT=24
 USB_CMD_AVR_RESET = 200
 USB_CMD_AVR_DFU_MODE = 201
 USB_CMD_TEST = 251
@@ -151,6 +153,7 @@ SET_TYPE_DICT = {
     USB_CMD_SET_ENABLE: 'uint8',
     USB_CMD_SET_DIO_HI : 'uint8',
     USB_CMD_SET_DIO_LO : 'uint8',
+    USB_CMD_SET_EXT_INT : 'uint8',
     }
 
 # Dictionary from type to USB_CTL values
@@ -1025,7 +1028,59 @@ class Simple_Step:
         if pin < 0 or pin > 7:
             raise ValueError, "pin # out of range"
         val = self.usb_set_cmd(USB_CMD_SET_DIO_LO,pin)
+
+    def set_ext_int(self,ext_int):
+        """
+        Enable or disables external interrupts.
+
+        Argument:
+         ext_int = ENABLE or DISABLE, 'enable' or 'disable'
+
+        Return: the new external interrupt setting 
+                'enable' or 'disable' if type(val) == str
+                 ENABLE  or  DISABLE  if type(val) == int
+        """
+
+        if type(ext_int) == str:
+            try:
+                ext_int_val = ENABLE2VAL_DICT[ext_int.lower()]
+            except:
+                raise ValueError, "unknown ext_int string %s"%(ext_int,)
+        else:
+            try:
+                ext_int_val = int(ext_int)
+            except:
+                raise ValueError, "unable to convert ext_int to integer"
+            if not (ext_int_val in (ENABLED,DISABLED)):
+                raise ValueError, "unknown ext_int integer %d"%(ext_int_val,)
         
+        # Send usb command
+        ext_int_val = self.usb_set_cmd(USB_CMD_SET_EXT_INT,ext_int_val)
+        if type(ext_int) == str:
+            return VAL2ENABLE_DICT[ext_int_val]
+        else:
+            return ext_int_val
+
+    def get_ext_int(self, ret_type='str'):
+        """
+        Returns current external interrupt setting.
+
+        Arguments: None
+        
+        Return: current external interrupt setting. 
+                'ext_int' or 'disable' if ret_type == 'str'
+                 ENABLE  or  DISABLE  if ret_type == 'int'
+                
+        """
+        ext_int_val = self.usb_get_cmd(USB_CMD_GET_EXT_INT)
+        if ret_type == 'str':
+            return VAL2ENABLE_DICT[ext_int_val]
+        elif ret_type == 'int':
+            return ext_int_val
+        else:
+            raise ValueError, "unknown ret_type %s"%(ret_type,)
+        
+
     def cmd_test(self):
         """
         Dummy usb command for debugging.
@@ -1354,6 +1409,7 @@ class Simple_Step:
         print '   position error:', self.get_pos_err()
         print '   maximum velocity:', self.get_max_vel()
         print '   minimum velocity:', self.get_min_vel()
+        print '   external interrupts:', self.get_ext_int()
         
         print 
         print ' position mode settings'
