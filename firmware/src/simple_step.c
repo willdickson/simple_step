@@ -494,7 +494,7 @@ static void Set_Ext_Int(uint8_t val)
     if (val == DISABLED) {
         // Disable external interrupts
         Sys_State.Ext_Int = DISABLED;
-        //EIMSK &= ~(1<<EXT_INT);
+        EIMSK &= ~(1<<EXT_INT);
     }
     return;
 }
