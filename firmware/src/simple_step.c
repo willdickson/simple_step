@@ -385,8 +385,8 @@ TASK(USB_Process_Packet)
                     break;
 
                 case USB_CMD_GET_EXT_INT:
-                    USB_In.Header.Control_Byte = USB_CTL_UINT8;
                     USB_In.Data.uint8_t = Sys_State.Ext_Int;
+                    USB_In.Header.Control_Byte = USB_CTL_UINT8;
                     break;
 
                 case USB_CMD_SET_EXT_INT:
@@ -494,7 +494,7 @@ static void Set_Ext_Int(uint8_t val)
     if (val == DISABLED) {
         // Disable external interrupts
         Sys_State.Ext_Int = DISABLED;
-        EIMSK &= ~(1<<EXT_INT);
+        //EIMSK &= ~(1<<EXT_INT);
     }
     return;
 }

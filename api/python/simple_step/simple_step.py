@@ -54,7 +54,7 @@ def swap_dict(in_dict):
 
 # Constants
 # ------------------------------------------------------------------
-DEBUG = False
+DEBUG = True 
 INT32_MAX = (2**32-1)/2
 
 # USB parameters
@@ -217,9 +217,9 @@ class Simple_Step:
                 break
         if not found:
             raise RuntimeError("Cannot find device.")
-
-        self.libusb_handle = usb.open(dev)
         
+        self.libusb_handle = usb.open(dev)
+
         interface_nr = 0
         if hasattr(usb,'get_driver_np'):
             # non-portable libusb function available
@@ -232,16 +232,15 @@ class Simple_Step:
         if dev.descriptor.bNumConfigurations > 1:
             debug("WARNING: more than one configuration, choosing first")
 
-            
         usb.set_configuration(self.libusb_handle, dev.config[0].bConfigurationValue)
         usb.claim_interface(self.libusb_handle, interface_nr)
-        
+
         self.output_buffer = ctypes.create_string_buffer(USB_BUFFER_SIZE)
         self.input_buffer = ctypes.create_string_buffer(USB_BUFFER_SIZE)
         for i in range(USB_BUFFER_SIZE):
             self.output_buffer[i] = chr(0x00)
             self.input_buffer[i] = chr(0x00)
-        
+
         # Get max and min velocities
         self.max_vel = self.get_max_vel()
         self.min_vel = self.get_min_vel()
@@ -277,7 +276,15 @@ class Simple_Step:
             val = self.__send_output(timeout=out_timeout)
             if val < 0 :
                 raise IOError, "error sending usb output"
+
+            print '44'
+            sys.stdout.flush()
+
             data = self.__read_input(timeout=in_timeout)
+
+            print '55'
+            sys.stdout.flush()
+
             if data == None:
                 debug_print('usb SR: fail', comma=False) 
                 sys.stdout.flush()
@@ -285,6 +292,7 @@ class Simple_Step:
             else:
                 done = True
                 debug_print('usb SR cmd_id: %d'%(ord(data[0]),), comma=False) 
+
         return data
 
     def __send_output(self,timeout=9999):
@@ -315,7 +323,11 @@ class Simple_Step:
         """
         buf = self.input_buffer
         try:
+            print 'aa'
+            sys.stdout.flush()
             val = usb.bulk_read(self.libusb_handle, USB_BULKIN_EP_ADDRESS, buf, timeout)
+            print 'bb'
+            sys.stdout.flush()
             #print 'read', [ord(b) for b in buf]
             data = [x for x in buf]
         except usb.USBNoDataAvailableError:
