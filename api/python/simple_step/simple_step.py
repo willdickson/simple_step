@@ -54,7 +54,7 @@ def swap_dict(in_dict):
 
 # Constants
 # ------------------------------------------------------------------
-DEBUG = True 
+DEBUG = False 
 INT32_MAX = (2**32-1)/2
 
 # USB parameters
@@ -198,6 +198,8 @@ class Simple_Step:
         Return: None.
         """
         usb.init()
+
+        #usb.set_debug(3)
         
         # Get usb busses
         if not usb.get_busses():
@@ -259,7 +261,7 @@ class Simple_Step:
     # -------------------------------------------------------------------------
     # Methods for low level USB communication 
         
-    def __send_and_receive(self,in_timeout=1000,out_timeout=9999):
+    def __send_and_receive(self,in_timeout=200,out_timeout=9999):
         """
         Send bulkout and and receive bulkin as a response.
         
@@ -277,13 +279,9 @@ class Simple_Step:
             if val < 0 :
                 raise IOError, "error sending usb output"
 
-            print '44'
-            sys.stdout.flush()
-
+            # DEBUG: sometimes get no data here. I Reduced the timeout to 200 
+            # which makes problem less apparent, but doesn't get rod out it. 
             data = self.__read_input(timeout=in_timeout)
-
-            print '55'
-            sys.stdout.flush()
 
             if data == None:
                 debug_print('usb SR: fail', comma=False) 
@@ -323,11 +321,7 @@ class Simple_Step:
         """
         buf = self.input_buffer
         try:
-            print 'aa'
-            sys.stdout.flush()
             val = usb.bulk_read(self.libusb_handle, USB_BULKIN_EP_ADDRESS, buf, timeout)
-            print 'bb'
-            sys.stdout.flush()
             #print 'read', [ord(b) for b in buf]
             data = [x for x in buf]
         except usb.USBNoDataAvailableError:
