@@ -44,10 +44,10 @@
 SN0 = 0x30 # 0 in ascii
 SN1 = 0x30 # 0 in ascii
 SN2 = 0x30 # 0 in ascii
-SN3 = 0x30 # 0 in ascii
-SN4 = 0x30 # 0 in ascii
-SN5 = 0x30 # 0 in ascii
-SN6 = 0x30 # 0 in ascii
+#SN3 = 0x30 # 0 in ascii
+#SN4 = 0x30 # 0 in ascii
+#SN5 = 0x30 # 0 in ascii
+#SN6 = 0x30 # 0 in ascii
 
 # Location of MyUSB library source code (absolute path)
 MYUSB_SRC_DIR = /usr/local/src/avr/MyUSB_1.4.1/MyUSB
@@ -148,7 +148,7 @@ CSTANDARD = -std=gnu99
 
 # Place -D or -U options here for C sources
 CDEFS  = -DF_CPU=$(F_CPU)UL -DBOARD=BOARD_$(BOARD)  
-CDEFS += -DSN0=$(SN0) -DSN1=$(SN1) -DSN2=$(SN2) -DSN3=$(SN3) -DSN4=$(SN4) -DSN5=$(SN5) -DSN6=$(SN6)
+CDEFS += -DSN0=$(SN0) -DSN1=$(SN1) -DSN2=$(SN2) #-DSN3=$(SN3) -DSN4=$(SN4) -DSN5=$(SN5) -DSN6=$(SN6)
 CDEFS += -DUSB_DEVICE_ONLY -DUSE_STATIC_OPTIONS="(USB_DEVICE_OPT_FULLSPEED | USB_OPT_REG_ENABLED)"
 
 

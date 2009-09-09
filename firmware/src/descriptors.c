@@ -105,7 +105,7 @@ USB_Descriptor_String_t SerialNumberString PROGMEM = {
 */
 
 USB_Descriptor_String_t SerialNumberString PROGMEM = {
-  Header: {Size: USB_STRING_LEN(13), Type:DTYPE_String},
+  Header: {Size: USB_STRING_LEN(5), Type:DTYPE_String},
   UnicodeString: SERIAL_NUMBER,
 };
 

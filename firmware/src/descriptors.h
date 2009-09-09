@@ -38,7 +38,7 @@
 #define SIMPLE_OUT_EPSIZE   8
 
 /* Serial Number */
-#define SERIAL_NUMBER {SN0,'.',SN1,'.',SN2,'.',SN3,'.',SN4,'.',SN5,'.',SN6} 
+#define SERIAL_NUMBER {SN2,'.',SN1,'.',SN0} //,'.',SN3,'.',SN4,'.',SN5,'.',SN6} 
 
 /* Type Defines: */
 typedef struct

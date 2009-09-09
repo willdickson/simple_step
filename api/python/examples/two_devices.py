@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import simple_step
 
-devA = simple_step.Simple_Step(serial_number='A.0.0.0.0.0.0')
-devB = simple_step.Simple_Step(serial_number='B.0.0.0.0.0.0')
+devA = simple_step.Simple_Step(serial_number='0.0.A')
+devB = simple_step.Simple_Step(serial_number='0.0.B')
 
 devA.print_values()
 print
