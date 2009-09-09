@@ -526,6 +526,18 @@ class Simple_Step:
         """
         return usb.get_string_simple(self.libusb_handle, self.dev.descriptor.iProduct)
 
+    def get_vendor_id(self):
+        """
+        Get device vendor ID.
+        """
+        return self.dev.descriptor.idVendor
+
+    def get_product_id(self):
+        """
+        Get device product ID.
+        """
+        return self.dev.descriptor.idProduct
+
     # -----------------------------------------------------------------
     # Methods for USB Commands specified  by command IDs
 
@@ -1458,7 +1470,9 @@ class Simple_Step:
         print ' '+ '-'*35
         print '   manufacturer:', self.get_manufacturer()
         print '   product:', self.get_product()
-        print '   serial number:', self.get_serial_number()
+        print '   vendor ID:', hex(self.get_vendor_id())
+        print '   product ID:', hex(self.get_product_id())
+        print '   serial number:',self.get_serial_number()
         print
         print ' system state'
         print ' '+ '-'*35
