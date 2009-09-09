@@ -101,10 +101,21 @@ class Simple_Step_Cmd_Line:
                           help = 'verbose mode - print additional information',
                           default = False)
 
+        self.parser.add_option('-s', '--serial_number',
+                          dest = 'serial_number',
+                          help = 'serial number - specify device by serial number',
+                          default = None)
+
         self.options, self.args = self.parser.parse_args()
+        serial_number = self.options.serial_number
+
+        ########################################################################
+        # DEBUG: may want to check serial number format. Also, may want to
+        # provide to way to specify the serial number using a short hand.
+        ########################################################################
         
         # Open device
-        self.dev = Simple_Step()        
+        self.dev = Simple_Step(serial_number=serial_number)        
         atexit.register(self.atexit)
         return 
 
