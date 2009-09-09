@@ -189,7 +189,7 @@ class Simple_Step:
     USB interface to the at90usb based stepper motor controller board.
     """
 
-    def __init__(self):
+    def __init__(self,serial_number=None):
         """
         Open and initialize usb device.
         
@@ -209,19 +209,38 @@ class Simple_Step:
 
         # Find device by IDs
         found = False
+        dev_list = []
         for bus in busses:
             for dev in bus.devices:
                 if (dev.descriptor.idVendor == USB_VENDOR_ID and
                     dev.descriptor.idProduct == USB_PRODUCT_ID):
+                    dev_list.append(dev)
                     found = True
-                    break
-            if found:
-                break
+                    #break
+            #if found:
+            #    break
         if not found:
             raise RuntimeError("Cannot find device.")
 
-        self.libusb_handle = usb.open(dev)
-        self.dev = dev
+        if serial_number == None:
+            # No serial number specified - take first device
+            dev = dev_list[0]
+            self.libusb_handle = usb.open(dev)
+            self.dev = dev
+        else:
+            # Try and find device with specified serial number
+            found = False
+            for dev in dev_list:
+                self.dev = dev
+                self.libusb_handle = usb.open(dev)
+                sn = self.get_serial_number()
+                if sn == serial_number:
+                    found = True
+                    break
+                else:
+                    ret = usb.close(self.libusb_handle)
+            if not found:
+                raise RuntimeError("Cannot find device w/ serial number %s."%(serial_number,))
 
         interface_nr = 0
         if hasattr(usb,'get_driver_np'):
