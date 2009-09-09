@@ -29,7 +29,6 @@
 
 /* Includes: */
 #include <MyUSB/Drivers/USB/USB.h>
-
 #include <avr/pgmspace.h>
 
 /* Macros: */
@@ -37,6 +36,9 @@
 #define SIMPLE_OUT_EPNUM    1	
 #define SIMPLE_IN_EPSIZE    8   
 #define SIMPLE_OUT_EPSIZE   8
+
+/* Serial Number */
+#define SERIAL_NUMBER {SN0,'.',SN1,'.',SN2,'.',SN3,'.',SN4,'.',SN5,'.',SN6} 
 
 /* Type Defines: */
 typedef struct

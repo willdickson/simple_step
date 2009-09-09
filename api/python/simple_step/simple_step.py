@@ -219,8 +219,9 @@ class Simple_Step:
                 break
         if not found:
             raise RuntimeError("Cannot find device.")
-        
+
         self.libusb_handle = usb.open(dev)
+        self.dev = dev
 
         interface_nr = 0
         if hasattr(usb,'get_driver_np'):
@@ -475,6 +476,36 @@ class Simple_Step:
         check_cmd_id(cmd_id, cmd_id_received)
         val = self.__get_usb_value(ctl_byte, data)
         return val
+
+    def get_serial_number(self):
+        """
+        Get serial number of device.
+        
+        Arguments: None
+
+        Return: serial number of device - a string
+        """
+        return  usb.get_string_simple(self.libusb_handle, self.dev.descriptor.iSerialNumber)
+
+    def get_manufacturer(self):
+        """
+        Get manufacturer of device
+
+        Arguments: None
+
+        Return: manufacturer string
+        """
+        return usb.get_string_simple(self.libusb_handle, self.dev.descriptor.iManufacturer)
+
+    def get_product(self):
+        """
+        Get decive product string
+
+        Arguments: None
+
+        Return: product string
+        """
+        return usb.get_string_simple(self.libusb_handle, self.dev.descriptor.iProduct)
 
     # -----------------------------------------------------------------
     # Methods for USB Commands specified  by command IDs
@@ -1403,6 +1434,12 @@ class Simple_Step:
         
         Return None.
         """
+        print 
+        print 'device information'
+        print ' '+ '-'*35
+        print '   manufacturer:', self.get_manufacturer()
+        print '   product:', self.get_product()
+        print '   serial number:', self.get_serial_number()
         print
         print ' system state'
         print ' '+ '-'*35

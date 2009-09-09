@@ -26,6 +26,7 @@
 ----------------------------------------------------------------------------*/
 #include "descriptors.h"
 
+
 USB_Descriptor_Device_t DeviceDescriptor PROGMEM = {
   Header: {Size: sizeof (USB_Descriptor_Device_t), Type:DTYPE_Device},
   USBSpecification: 0x0101,
@@ -96,10 +97,18 @@ USB_Descriptor_String_t ProductString PROGMEM = {
   UnicodeString:{'S', 'i', 'm', 'p', 'l', 'e', ' ', 'S', 't', 'e', 'p'}
 };
 
+/*
 USB_Descriptor_String_t SerialNumberString PROGMEM = {
   Header: {Size: USB_STRING_LEN(13), Type:DTYPE_String},
-  UnicodeString:{'0','.','0','.','0','.','0','.','0','.','0','.','0'}
+  UnicodeString:{'0','.','0','.','0','.','0','.','0','.','0','.','1'}
 };
+*/
+
+USB_Descriptor_String_t SerialNumberString PROGMEM = {
+  Header: {Size: USB_STRING_LEN(13), Type:DTYPE_String},
+  UnicodeString: SERIAL_NUMBER,
+};
+
 
 bool
 USB_GetDescriptor (const uint8_t Type, const uint8_t Index,
