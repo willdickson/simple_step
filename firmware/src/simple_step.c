@@ -578,7 +578,10 @@ static void Vel_Trig_Lo(void)
 static void Set_Status(uint8_t Status)
 {
     if ((Status == RUNNING) || (Status == STOPPED)) {
-        if ((Status==RUNNING) && (Sys_State.Status==ENABLED) && 
+        // -----------------------------------------------------
+        // BUG: should this be Sys_State.Ext_Int == ENABLED ??
+        // -----------------------------------------------------
+        if ((Status==RUNNING) && (Sys_State.Ext_Int==ENABLED) && 
                 (Ext_Int_Active()==TRUE)) {
             return;
         }
@@ -994,11 +997,15 @@ static void REG_16bit_Write (volatile uint16_t * reg, volatile uint16_t val)
 // ------------------------------------------------------------------  
 ISR(TIMER3_OVF_vect) {
 
+    static uint8_t status = DEFAULT_STATUS;
+    static uint8_t dir = DEFAULT_DIR;
+    static uint16_t vel = DEFAULT_VEL;
+
     // If Stopped do nothing
-    if ((Sys_State.Status == RUNNING) && (Sys_State.Vel > 0)) {
+    if ((status == RUNNING) && (vel > 0)) {
 
         // Update Position
-        if (Sys_State.Dir == DIR_POS) {
+        if (dir == DIR_POS) {
             Sys_State.Pos += (int32_t)1;
         }
         else {
@@ -1013,6 +1020,11 @@ ISR(TIMER3_OVF_vect) {
             }
         }
     } // if ((Sys_State.Status == RUNNING) && ...
+
+    status = Sys_State.Status;
+    dir = Sys_State.Dir;
+    vel = Sys_State.Vel;
+
     return;
 }
 

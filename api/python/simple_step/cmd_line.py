@@ -486,7 +486,7 @@ Command Summary:
  enable         - enable the stepper drive
  help           - get help 
  move-by        - move motor by the specified amount
- move-to_pos    - move motor to the specified position
+ move-to-pos    - move motor to the specified position
  print-vals     - print current device values
  ramp-to-pos    - move motor to specified position using a ramp
  ramp-to-vel    - set motor velocity using a ramp

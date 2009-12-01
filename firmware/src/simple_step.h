@@ -91,13 +91,19 @@ Author: Will Dickson
 // Opertaing modes
 #define VEL_MODE 0
 #define POS_MODE 1
+#define DEFAULT_MODE VEL_MODE
 
 // Motor directions
 #define DIR_POS 0
 #define DIR_NEG 1
+#define DEFAULT_DIR DIR_POS
 
 // Default positioning velocity 
 #define DEFAULT_POS_VEL 5000
+
+// Default velocity and default position
+#define DEFAULT_VEL 0
+#define DEFAULT_POS 0
 
 // Prescaler for pwm timer
 #define TIMER_PRESCALER 8
@@ -132,6 +138,7 @@ Author: Will Dickson
 // States for run status flag
 #define RUNNING 1
 #define STOPPED 0
+#define DEFAULT_STATUS STOPPED
 
 // States for enable
 #define ENABLED 1
@@ -244,13 +251,13 @@ USB_InOut_t USB_In;
 const uint8_t dio_port_pins[] = DIO_PORT_PINS;
 
 volatile Sys_State_t Sys_State = {
-    Mode:      VEL_MODE, 
-    Dir:       DIR_POS,
-    Vel:       0,
-    Pos:       0,
-    Pos_Mode:  {Pos_SetPt: 0, Pos_Vel: DEFAULT_POS_VEL},
-    Vel_Mode:  {Vel_SetPt: 0, Dir_SetPt: DIR_POS},
-    Status:    STOPPED,
+    Mode:      DEFAULT_MODE, 
+    Dir:       DEFAULT_DIR,
+    Vel:       DEFAULT_VEL,
+    Pos:       DEFAULT_POS,
+    Pos_Mode:  {Pos_SetPt: DEFAULT_POS, Pos_Vel: DEFAULT_POS_VEL},
+    Vel_Mode:  {Vel_SetPt: DEFAULT_VEL, Dir_SetPt: DEFAULT_DIR},
+    Status:    DEFAULT_STATUS,
     Enable:    ENABLED,
     Ext_Int:   DISABLED,
 };
