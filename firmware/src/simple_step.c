@@ -1021,6 +1021,7 @@ ISR(TIMER3_OVF_vect) {
         }
     } // if ((Sys_State.Status == RUNNING) && ...
 
+    // Update local versions of status, direction, and velocity.
     status = Sys_State.Status;
     dir = Sys_State.Dir;
     vel = Sys_State.Vel;
