@@ -50,6 +50,10 @@ TASK_LIST {
 uint32_t boot_key __attribute__ ((section (".noinit")));
 void (*start_bootloader) (void) = (void (*)(void)) 0xf000;
 
+// Maximum and minimum velocities 
+uint16_t Max_Vel;
+uint16_t Min_Vel;
+
 int main(void)
 {
     // After reset start bootloader? 
@@ -75,11 +79,14 @@ int main(void)
     //Initialize Scheduler so that it can be used 
     Scheduler_Init();
 
+    // Compute max and min velocities
+    Max_Vel = Get_Max_Vel();
+    Min_Vel = Get_Min_Vel();
+
     // Initialize USB Subsystem 
     USB_Init();
 
     IO_Init();
-
 
     // Scheduling - routine never returns, so put this last in the main function 
     Scheduler_Start();
@@ -96,7 +103,11 @@ static void IO_Init(void)
     CLK_DIR_PORT = 0x0; 
 
     // Turn off Clock and Direction Pins
-    Clk_Dir_Off();
+    //Clk_Dir_Off();
+    
+    // Set Clock and Direction Pins to Output
+    CLK_DIR_DDR |= (1<<CLK_DDR_PIN);
+    CLK_DIR_DDR |= (1<<DIR_DDR_PIN);
 
     // Set data direction of trigger pins to output
     VEL_TRIG_DDR |= (1 << VEL_TRIG_DDR_PIN);
@@ -115,7 +126,8 @@ static void IO_Init(void)
 
     // Set timer control registers, connect OCnB to pin and set 
     // to fast PWM mode with double buffering of TOP
-    TIMER_TCCRA = 0x23; 
+    //TIMER_TCCRA = 0x23; 
+    TIMER_TCCRA = 0x03;
     TIMER_TCCRB = 0x18; 
 
     // Set Timer prescaler
@@ -150,7 +162,7 @@ static void IO_Init(void)
     // Enable Timer3 overflow interrupts
     TIMER_TIMSK = 0x00; 
     TIMER_TIMSK |= (1<<TIMER_TOIE); 
-    return;
+    TIMER_TIMSK |= (1<<TIMER_OCIEB); 
 
     // Set data direction for external interrupt
     EXT_INT_DDR &= ~(1<<EXT_INT_DDR_PIN);
@@ -339,12 +351,12 @@ TASK(USB_Process_Packet)
 
                 case USB_CMD_GET_MAX_VEL:
                     USB_In.Header.Control_Byte = USB_CTL_UINT16;
-                    USB_In.Data.uint16_t = Get_Max_Vel();
+                    USB_In.Data.uint16_t = Max_Vel;
                     break;
 
                 case USB_CMD_GET_MIN_VEL:
                     USB_In.Header.Control_Byte = USB_CTL_UINT16;
-                    USB_In.Data.uint16_t = Get_Min_Vel();
+                    USB_In.Data.uint16_t = Min_Vel;
                     break;
 
                 case USB_CMD_GET_STATUS:
@@ -443,6 +455,64 @@ TASK(USB_Process_Packet)
             LEDs_SetAllLEDs(LEDS_LED2 | LEDS_LED4);
         }
     }
+    return;
+}
+
+// ------------------------------------------------------------------
+// Function: USB_Packet_Read
+//
+// Purpose: Reads a USB data packect.
+// ------------------------------------------------------------------
+static void USB_Packet_Read(void)
+{
+    uint8_t *USB_OutPtr = (uint8_t *) &USB_Out;
+
+    // Select the Data Out endpoint 
+    Endpoint_SelectEndpoint(SIMPLE_OUT_EPNUM);
+    // Read in USB packet header 
+    Endpoint_Read_Stream_LE(USB_OutPtr, sizeof(USB_Out));
+    // Clear the endpoint 
+    Endpoint_FIFOCON_Clear();
+    return;
+}
+
+// -------------------------------------------------------------------
+// Function: USB_Packet_Write
+//
+// Purpose: Writes a USB data packet.
+// -------------------------------------------------------------------
+static void USB_Packet_Write(void)
+{
+    uint8_t *USB_InPtr = (uint8_t *) &USB_In;
+
+    // Select the Data Out endpoint 
+    Endpoint_SelectEndpoint(SIMPLE_OUT_EPNUM);
+
+    // While data pipe is stalled, process control requests 
+    while(Endpoint_IsStalled())
+    {
+        USB_USBTask();
+        Endpoint_SelectEndpoint(SIMPLE_OUT_EPNUM);
+    }
+
+    // Select the Data In endpoint 
+    Endpoint_SelectEndpoint(SIMPLE_IN_EPNUM);
+
+    // While data pipe is stalled, process control requests 
+    while (Endpoint_IsStalled())
+    {
+        USB_USBTask();
+        Endpoint_SelectEndpoint(SIMPLE_IN_EPNUM);
+    }
+
+    // Wait until read/write to IN data endpoint allowed 
+    while(!(Endpoint_ReadWriteAllowed ()));
+
+    // Write the return data to the endpoint 
+    Endpoint_Write_Stream_LE(USB_InPtr, sizeof(USB_In));
+
+    // Send the CSW 
+    Endpoint_FIFOCON_Clear();
     return;
 }
 
@@ -578,9 +648,6 @@ static void Vel_Trig_Lo(void)
 static void Set_Status(uint8_t Status)
 {
     if ((Status == RUNNING) || (Status == STOPPED)) {
-        // -----------------------------------------------------
-        // BUG: should this be Sys_State.Ext_Int == ENABLED ??
-        // -----------------------------------------------------
         if ((Status==RUNNING) && (Sys_State.Ext_Int==ENABLED) && 
                 (Ext_Int_Active()==TRUE)) {
             return;
@@ -616,12 +683,15 @@ static void Set_Pos_SetPt(int32_t Pos)
 // Purpose: Sets the current velocity in indices/sec.
 //
 // -------------------------------------------------------------
-static void Set_Vel_SetPt(uint16_t Vel)
+static void Set_Vel_SetPt(uint16_t Vel_SetPt)
 {
-    uint16_t Max_Vel = Get_Max_Vel();
+    uint16_t Vel;
 
     // We are in velocity mode - change Sys_State velocity
-    Sys_State.Vel_Mode.Vel_SetPt = Vel < Max_Vel ? Vel : Max_Vel;
+    Vel = Vel_SetPt;
+    Vel = Vel >= Min_Vel ? Vel : Min_Vel;
+    Sys_State.Vel_Mode.Vel_SetPt = Vel <= Max_Vel ? Vel : Max_Vel;
+
     return;
 }
 
@@ -653,8 +723,11 @@ static void Set_Pos_Vel(uint16_t Pos_Vel)
 {
     uint16_t Vel;
 
-    Vel = Pos_Vel <= Get_Max_Vel() ? Pos_Vel : Get_Max_Vel();
-    Sys_State.Pos_Mode.Pos_Vel = Vel;
+    // We are in velocity mode - change Sys_State velocity
+    Vel = Pos_Vel;
+    Vel = Vel >= Min_Vel ? Vel : Min_Vel;
+    Sys_State.Pos_Mode.Pos_Vel = Vel <= Max_Vel ? Vel : Max_Vel;
+
     return;
 }
 
@@ -757,81 +830,6 @@ static uint16_t Get_Top(uint16_t Vel)
     return (uint16_t) top;
 }
 
-// ---------------------------------------------------------------
-// Function: Clk_Dir_On
-//
-// Purpose: Enables clock and direction pins
-//
-// ---------------------------------------------------------------
-static void Clk_Dir_On(void)
-{
-    // Enable clock and direction if not enabled 
-    if (~( CLK_DIR_DDR & (1<<CLK_DDR_PIN))) {
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            CLK_DIR_DDR |= (1<<CLK_DDR_PIN);
-            CLK_DIR_DDR |= (1<<DIR_DDR_PIN);
-        }
-    }
-    return;
-}
-
-// ---------------------------------------------------------------
-// Function: Clk_Dir_Off
-//
-// Purpose: Disables clock and direction pins
-//
-// ---------------------------------------------------------------
-static void Clk_Dir_Off(void)
-{
-    // Disable clock and direction if enabled 
-    if ( CLK_DIR_DDR & (1<<CLK_DDR_PIN)) {
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            CLK_DIR_DDR &= ~(1<<CLK_DDR_PIN);
-            CLK_DIR_DDR &= ~(1<<DIR_DDR_PIN);
-        }
-    }
-    return;
-}
-
-// -----------------------------------------------------------------
-// Function: IO_Upate
-//
-// Purpose: Updates the clock and direction pins, sets the output
-// compare register, and the timer top. 
-//
-// -----------------------------------------------------------------
-static void IO_Update(uint16_t Vel, uint8_t Dir)
-{
-    uint16_t timer_top;
-
-    // Compute top
-    timer_top = Get_Top(Vel);
-    timer_top = timer_top > TIMER_TOP_MIN ? timer_top : TIMER_TOP_MIN;
-    timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
-
-
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-
-        // Update direction
-        if (Dir == DIR_NEG) {
-            CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
-        }
-        else {
-            CLK_DIR_PORT &= ~(1 << DIR_PORT_PIN);
-        }
-
-        // Update Sys_State
-        Sys_State.Dir = Dir;
-        Sys_State.Vel = Vel;
-
-        // Update clock frequency and pulse width 
-        TIMER_TOP = timer_top;
-        TIMER_OCR = timer_top/2;
-    }
-
-    return;
-}
-
 // ------------------------------------------------------------------
 // Function: Pos_Mode_IO_Update
 //
@@ -843,34 +841,18 @@ static void IO_Update(uint16_t Vel, uint8_t Dir)
 // ------------------------------------------------------------------
 static void Pos_Mode_IO_Update(void)
 {
-    int32_t Pos_Err;
-    uint8_t Dir;
-    uint16_t Vel;
+    uint16_t timer_top;
 
-    // Set direction based on position error
-    Pos_Err = Get_Pos_Err();
-    Pos_Err = Get_Pos_Err();
-    if (Pos_Err > 0) {
-        Dir = DIR_POS;
-    }
-    else {
-        Dir = DIR_NEG;
-    }
+    // Compute top
+    timer_top = Get_Top(Sys_State.Pos_Mode.Pos_Vel);
+    timer_top = timer_top > TIMER_TOP_MIN ? timer_top : TIMER_TOP_MIN;
+    timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
 
-    // If we are not at the set point set velocity, turn on clock and 
-    // direction commands, and set status to RUNNING.
-    if ((Pos_Err != 0) && (Sys_State.Status==RUNNING) && 
-            (Sys_State.Pos_Mode.Pos_Vel >= Get_Min_Vel())) {
-
-        Clk_Dir_On();
-        Vel = Sys_State.Pos_Mode.Pos_Vel;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        // Update clock frequency and pulse width 
+        TIMER_TOP = timer_top;
+        TIMER_OCR = timer_top/2;
     }
-    else {
-        Vel = 0;
-        Clk_Dir_Off();
-    }
-
-    IO_Update(Vel,Dir);
     return;
 }
 
@@ -884,148 +866,97 @@ static void Pos_Mode_IO_Update(void)
 // -------------------------------------------------------------------- 
 static void Vel_Mode_IO_Update(void)
 {
-    uint8_t Dir;
     uint16_t Vel;
+    uint16_t timer_top;
 
-    Dir = Sys_State.Vel_Mode.Dir_SetPt;
+    // Compute top
+    timer_top = Get_Top(Sys_State.Vel_Mode.Vel_SetPt);
+    timer_top = timer_top > TIMER_TOP_MIN ? timer_top : TIMER_TOP_MIN;
+    timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
 
-    // Set velocity to set-point velocity
-    if ((Sys_State.Status==RUNNING) && 
-            (Sys_State.Vel_Mode.Vel_SetPt >= Get_Min_Vel())) {       
-        Vel = Sys_State.Vel_Mode.Vel_SetPt;
-        Clk_Dir_On();
-        Vel_Trig_Hi();
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        Sys_State.Dir = Sys_State.Vel_Mode.Dir_SetPt;
+        // Update clock frequency and pulse width 
+        TIMER_TOP = timer_top;
+        TIMER_OCR = timer_top/2;
     }
-    else {
-        Vel = 0;
-        Clk_Dir_Off();
-        Vel_Trig_Lo();
-    }
-
-    IO_Update(Vel,Dir);
-    return;
-}
-
-// ------------------------------------------------------------------
-// Function: USB_Packet_Read
-//
-// Purpose: Reads a USB data packect.
-// ------------------------------------------------------------------
-static void USB_Packet_Read(void)
-{
-    uint8_t *USB_OutPtr = (uint8_t *) &USB_Out;
-
-    // Select the Data Out endpoint 
-    Endpoint_SelectEndpoint(SIMPLE_OUT_EPNUM);
-    // Read in USB packet header 
-    Endpoint_Read_Stream_LE(USB_OutPtr, sizeof(USB_Out));
-    // Clear the endpoint 
-    Endpoint_FIFOCON_Clear();
     return;
 }
 
 // -------------------------------------------------------------------
-// Function: USB_Packet_Write
-//
-// Purpose: Writes a USB data packet.
+// Set clock dio lines high and update positons
 // -------------------------------------------------------------------
-static void USB_Packet_Write(void)
-{
-    uint8_t *USB_InPtr = (uint8_t *) &USB_In;
-
-    // Select the Data Out endpoint 
-    Endpoint_SelectEndpoint(SIMPLE_OUT_EPNUM);
-
-    // While data pipe is stalled, process control requests 
-    while(Endpoint_IsStalled())
-    {
-        USB_USBTask();
-        Endpoint_SelectEndpoint(SIMPLE_OUT_EPNUM);
-    }
-
-    // Select the Data In endpoint 
-    Endpoint_SelectEndpoint(SIMPLE_IN_EPNUM);
-
-    // While data pipe is stalled, process control requests 
-    while (Endpoint_IsStalled())
-    {
-        USB_USBTask();
-        Endpoint_SelectEndpoint(SIMPLE_IN_EPNUM);
-    }
-
-    // Wait until read/write to IN data endpoint allowed 
-    while(!(Endpoint_ReadWriteAllowed ()));
-
-    // Write the return data to the endpoint 
-    Endpoint_Write_Stream_LE(USB_InPtr, sizeof(USB_In));
-
-    // Send the CSW 
-    Endpoint_FIFOCON_Clear();
-    return;
-}
-
-// ------------------------------------------------------------------
-// Function: REG_16bit_Write
-//
-// Purpose: Writes data to 16 bit register disabling and 
-// re-enabling inerrupts.
-//
-// -------------------------------------------------------------------
-static void REG_16bit_Write (volatile uint16_t * reg, volatile uint16_t val)
-{
-    // See "Accessing 16-bit Registers" of the AT90USB1287 datasheet 
-    uint8_t sreg;
-    // Save global interrupt flag 
-    sreg = SREG;
-    // Disable interrupts 
-    cli ();
-    *reg = val;
-    // Restore global interrupt flag 
-    SREG = sreg;
-    return;
-}
-
-// ------------------------------------------------------------------
-// Function: ISR(TIMER3_OVF_vect)  
-//
-// Purpose: Timer overflow interrupt. Increments/Decrement the 
-// position counter if system is running. If position mode is set 
-// the current position is compared with the set-point. If they are 
-// equal the clock and direction commands and disabled, the 
-// velocity is set to zero and the status is set to Stopped.
-//
-// ------------------------------------------------------------------  
 ISR(TIMER3_OVF_vect) {
-
-    static uint8_t status = DEFAULT_STATUS;
-    static uint8_t dir = DEFAULT_DIR;
-    static uint16_t vel = DEFAULT_VEL;
-
-    // If Stopped do nothing
-    if ((status == RUNNING) && (vel > 0)) {
-
+    
+    // Set clock dio high
+    if (Sys_State.Clk == CLK_ON) {
+        CLK_DIR_PORT |= (1 << CLK_PORT_PIN);
         // Update Position
-        if (dir == DIR_POS) {
+        if (Sys_State.Dir == DIR_POS) {
             Sys_State.Pos += (int32_t)1;
         }
         else {
             Sys_State.Pos -= (int32_t)1;
         }
+    }
 
-        if (Sys_State.Mode == POS_MODE) {
-            // When we hit the set-point stop the clock and direction commands
-            if (Sys_State.Pos == Sys_State.Pos_Mode.Pos_SetPt) {
-                Clk_Dir_Off();
-                Sys_State.Vel = 0;
-            }
+    return;
+}
+
+// -------------------------------------------------------------------
+// Set direction dio lines and decide if clock should be on or off
+// -------------------------------------------------------------------
+ISR(TIMER3_COMPB_vect) {
+    uint16_t Vel;
+    int32_t Pos_Err;
+
+    // Set Clock dio line low 
+    CLK_DIR_PORT &= ~(1 << CLK_PORT_PIN);
+    
+    // In Position mode set direction and velocity based 
+    // on the position error. 
+    if (Sys_State.Mode == POS_MODE) {
+        Pos_Err = Get_Pos_Err();
+        if (Pos_Err >= 0) {
+            Sys_State.Dir = DIR_POS;
         }
-    } // if ((Sys_State.Status == RUNNING) && ...
+        else {
+            Sys_State.Dir = DIR_NEG;
+        }
+        if (Pos_Err == 0) {
+            Vel = 0;
+        }
+        else {
+            Vel = Sys_State.Pos_Mode.Pos_Vel;
+        }
+    } 
+    else {
+        Vel = Sys_State.Vel_Mode.Vel_SetPt;
+        if (Vel > 0) {
+            Vel_Trig_Hi();
+        }
+        else {
+            Vel_Trig_Lo();
+        }
+    }
 
-    // Update local versions of status, direction, and velocity.
-    status = Sys_State.Status;
-    dir = Sys_State.Dir;
-    vel = Sys_State.Vel;
+    // Update direction dio line
+    if (Sys_State.Dir == DIR_NEG) {
+        CLK_DIR_PORT |= (1 << DIR_PORT_PIN);
+    }
+    else {
+        CLK_DIR_PORT &= ~(1 << DIR_PORT_PIN);
+    }
 
+    // Turn on Clk
+    if ((Sys_State.Status == RUNNING) && (Vel > 0)) {
+        Sys_State.Clk = CLK_ON;
+        Sys_State.Vel = Vel;
+    }
+    else {
+        Sys_State.Clk = CLK_OFF;
+        Sys_State.Vel = 0;
+    }
     return;
 }
 
@@ -1042,13 +973,14 @@ ISR(TIMER3_OVF_vect) {
 ISR(EXT_INT_VECT) {
     if (Sys_State.Ext_Int==ENABLED) {
         Sys_State.Status = STOPPED;
+        Sys_State.Clk = CLK_OFF;
         if (Sys_State.Mode == POS_MODE) {
             Sys_State.Pos_Mode.Pos_SetPt = Sys_State.Pos;
-            Pos_Mode_IO_Update();
+            //Pos_Mode_IO_Update();
         }
         if (Sys_State.Mode == VEL_MODE) {
             Sys_State.Vel_Mode.Vel_SetPt = 0;
-            Vel_Mode_IO_Update();
+            //Vel_Mode_IO_Update();
         }
     }
     return;

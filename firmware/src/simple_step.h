@@ -79,6 +79,11 @@ Author: Will Dickson
 #define TRUE  1
 #define FALSE 0
 
+// Clock and Direction states
+#define CLK_ON 1
+#define CLK_OFF 0
+#define DEFAULT_CLK CLK_OFF
+
 // Usb ctl values for bulk in packets - used to determine data type
 #define USB_CTL_UINT8  0
 #define USB_CTL_UINT16 1
@@ -124,6 +129,7 @@ Author: Will Dickson
 // Timer interrupt mask register and enable
 #define TIMER_TIMSK TIMSK3 // Mask register
 #define TIMER_TOIE  TOIE3  // Enable
+#define TIMER_OCIEB OCIE3B
 
 // Clock and direction DDR register and pins
 #define CLK_DIR_DDR DDRC
@@ -243,6 +249,7 @@ typedef struct {
     uint8_t    Status;      // Motor status (RUNNING or STOPPED)
     uint8_t    Enable;      // Motor enable pin 
     uint8_t    Ext_Int;     // External interrupts (ENABLED or DISABLED)
+    uint8_t    Clk;         // Clock (ON or OFF)
 } Sys_State_t;
 
 /// Global variables
@@ -260,6 +267,7 @@ volatile Sys_State_t Sys_State = {
     Status:    DEFAULT_STATUS,
     Enable:    ENABLED,
     Ext_Int:   DISABLED,
+    Clk:       DEFAULT_CLK,
 };
 
 // Task Definitions: 
@@ -273,7 +281,6 @@ HANDLES_EVENT(USB_CreateEndpoints);
 // Function Prototypes
 static void USB_Packet_Read(void);
 static void USB_Packet_Write(void);
-static void REG_16bit_Write(volatile uint16_t * reg, volatile uint16_t val);
 static void IO_Init(void);
 static void Set_Pos_SetPt(int32_t Pos);
 static void Set_Vel_SetPt(uint16_t Vel);
@@ -286,9 +293,6 @@ static int32_t Get_Pos_Err(void);
 static uint16_t Get_Max_Vel(void);
 static uint16_t Get_Min_Vel(void);
 static uint16_t Get_Top(uint16_t Vel);
-static void Clk_Dir_On(void);
-static void Clk_Dir_Off(void);
-static void IO_Update(uint16_t Vel, uint8_t Dir);
 static void Vel_Mode_IO_Update(void);
 static void Pos_Mode_IO_Update(void);
 static void Vel_Trig_Hi(void);
