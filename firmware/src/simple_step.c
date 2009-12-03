@@ -913,9 +913,9 @@ ISR(TIMER3_COMPB_vect) {
     // Set Clock dio line low 
     CLK_DIR_PORT &= ~(1 << CLK_PORT_PIN);
     
-    // In Position mode set direction and velocity based 
-    // on the position error. 
     if (Sys_State.Mode == POS_MODE) {
+        // In Position mode set direction and velocity based 
+        // on the position error. 
         Pos_Err = Get_Pos_Err();
         if (Pos_Err >= 0) {
             Sys_State.Dir = DIR_POS;
@@ -931,7 +931,11 @@ ISR(TIMER3_COMPB_vect) {
         }
     } 
     else {
+        // In velocity mode set the velocity based on the velocity
+        // set point.
         Vel = Sys_State.Vel_Mode.Vel_SetPt;
+        // Set velocity trigger - this is/was used in Peter and Marie's 
+        // experiments so I've kept it in case they need it. 
         if (Vel > 0) {
             Vel_Trig_Hi();
         }
