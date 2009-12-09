@@ -690,7 +690,11 @@ static void Set_Vel_SetPt(uint16_t Vel_SetPt)
     // We are in velocity mode - change Sys_State velocity
     Vel = Vel_SetPt;
     Vel = Vel >= Min_Vel ? Vel : Min_Vel;
-    Sys_State.Vel_Mode.Vel_SetPt = Vel <= Max_Vel ? Vel : Max_Vel;
+    Vel = Vel <= Max_Vel ? Vel : Max_Vel;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        Sys_State.Vel_Mode.Vel_SetPt = Vel;
+    }
 
     return;
 }
@@ -707,7 +711,9 @@ static void Set_Vel_SetPt(uint16_t Vel_SetPt)
 static void Set_Dir_SetPt(uint8_t Dir)
 {
     if ((Dir == DIR_POS) || (Dir == DIR_NEG)) {
-        Sys_State.Vel_Mode.Dir_SetPt = Dir;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            Sys_State.Vel_Mode.Dir_SetPt = Dir;
+        }
     }
     return;
 }
@@ -726,7 +732,11 @@ static void Set_Pos_Vel(uint16_t Pos_Vel)
     // We are in velocity mode - change Sys_State velocity
     Vel = Pos_Vel;
     Vel = Vel >= Min_Vel ? Vel : Min_Vel;
-    Sys_State.Pos_Mode.Pos_Vel = Vel <= Max_Vel ? Vel : Max_Vel;
+    Vel = Vel <= Max_Vel ? Vel : Max_Vel;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        Sys_State.Pos_Mode.Pos_Vel = Vel;
+    }
 
     return;
 }
@@ -741,7 +751,9 @@ static void Set_Pos_Vel(uint16_t Pos_Vel)
 static void Set_Mode(uint8_t Mode)
 {
     if ((Mode == VEL_MODE) || (Mode == POS_MODE)) {
-        Sys_State.Mode = Mode;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            Sys_State.Mode = Mode;
+        }
     }
     return;
 }
@@ -783,8 +795,10 @@ static int32_t Get_Pos(void)
 // --------------------------------------------------------------
 static void Set_Zero_Pos(int32_t Pos)
 {
-    Sys_State.Pos_Mode.Pos_SetPt -= Pos;
-    Sys_State.Pos -= Pos;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        Sys_State.Pos_Mode.Pos_SetPt -= Pos;
+        Sys_State.Pos -= Pos;
+    }
     return;
 }
 
@@ -875,7 +889,7 @@ static void Vel_Mode_IO_Update(void)
     timer_top = timer_top < TIMER_TOP_MAX ? timer_top : TIMER_TOP_MAX;
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        Sys_State.Dir = Sys_State.Vel_Mode.Dir_SetPt;
+        // Sys_State.Dir = Sys_State.Vel_Mode.Dir_SetPt;
         // Update clock frequency and pulse width 
         TIMER_TOP = timer_top;
         TIMER_OCR = timer_top/2;
@@ -888,9 +902,10 @@ static void Vel_Mode_IO_Update(void)
 // -------------------------------------------------------------------
 ISR(TIMER3_OVF_vect) {
     
-    // Set clock dio high
     if (Sys_State.Clk == CLK_ON) {
+        // Set clock dio high
         CLK_DIR_PORT |= (1 << CLK_PORT_PIN);
+
         // Update Position
         if (Sys_State.Dir == DIR_POS) {
             Sys_State.Pos += (int32_t)1;
@@ -916,13 +931,17 @@ ISR(TIMER3_COMPB_vect) {
     if (Sys_State.Mode == POS_MODE) {
         // In Position mode set direction and velocity based 
         // on the position error. 
-        Pos_Err = Get_Pos_Err();
-        if (Pos_Err >= 0) {
+        Pos_Err = Sys_State.Pos_Mode.Pos_SetPt - Sys_State.Pos;
+
+        // Set Direction
+        if (Pos_Err > 0) {
             Sys_State.Dir = DIR_POS;
         }
-        else {
+        else if (Pos_Err < 0) {
             Sys_State.Dir = DIR_NEG;
         }
+
+        // Set Velocity
         if (Pos_Err == 0) {
             Vel = 0;
         }
@@ -934,6 +953,7 @@ ISR(TIMER3_COMPB_vect) {
         // In velocity mode set the velocity based on the velocity
         // set point.
         Vel = Sys_State.Vel_Mode.Vel_SetPt;
+        Sys_State.Dir = Sys_State.Vel_Mode.Dir_SetPt;
         // Set velocity trigger - this is/was used in Peter and Marie's 
         // experiments so I've kept it in case they need it. 
         if (Vel > 0) {
