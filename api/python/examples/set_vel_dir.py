@@ -22,4 +22,3 @@ dev.print_values()
 
 # Close device
 dev.close()
-
