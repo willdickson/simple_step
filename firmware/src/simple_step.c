@@ -517,11 +517,7 @@ static void USB_Packet_Write(void)
 }
 
 // ------------------------------------------------------------
-// Function: Set_Ext_Int
-//
-// Purpose: Reads value of external interrupt pin and returns
-// TRUE or FALSE base whether the value indicates that the
-// interrupt is still active.
+// Function: Ext_Int_Active 
 //
 // ------------------------------------------------------------
 static uint8_t Ext_Int_Active(void)
@@ -558,6 +554,7 @@ static void Set_Ext_Int(uint8_t val)
         else {
             // Enable external interrupts
             Sys_State.Ext_Int = ENABLED;
+            EIFR  |= (1<<EXT_INT_FLAG); // Clear interrupt
             EIMSK |= (1<<EXT_INT);
         }
     }

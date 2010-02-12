@@ -187,6 +187,7 @@ Author: Will Dickson
 
 // External interrupt
 #define EXT_INT INT0
+#define EXT_INT_FLAG INTF0
 
 // External interrupt DIO DDR register, and DDR pin
 #define EXT_INT_DDR DDRD 
